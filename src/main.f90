@@ -60,11 +60,22 @@ subroutine run
 
   ! ==== dump ====
   call mkdir_if_not("out"); check_err()
+
   call open_w(ifile, "out/xs.csv"); check_err()
-  write(ifile,*) "val"
+  write(ifile,'("val")')
   do ix = 1, nx_
      write(ifile,*) xs_(ix)
-  end do  
+  end do
+  close(ifile)
+  ifile = ifile + 1
+  
+  call open_w(ifile, "out/ts.csv"); check_err()
+  write(ifile,'("val")')
+  do it = 0, nt_/ntskip_
+     write(ifile,*) it*dt_*ntskip_
+  end do
+  close(ifile)
+  ifile = ifile + 1  
 
   ! ==== calculation ====
   do it = 0, nt_/ntskip_

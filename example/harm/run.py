@@ -29,7 +29,7 @@ dt = 0.1
 nt = 10
 ntskip = 1
 
-nstate = 1
+nstate = 2
 m = 1.0
 
 # ==== psi0 ====
@@ -40,9 +40,7 @@ with open("psi0.idx.csv", "w") as f:
         f.write("1,{0},{1},{2}\n".format(ix+1, gs[ix].real, gs[ix].imag))
 
 # ==== potential ====
-vs1 = 0.0*xs
-vs2 = 0.0*xs + 1.0
-#vs1 = xs**2
+vs1 = xs**2
 #vs2 = xs**2 + 1.0        
 with open("v.idx.csv", "w") as f:
     f.write("i,j,k,val\n")
