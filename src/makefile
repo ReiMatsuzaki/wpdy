@@ -36,7 +36,7 @@ OBJS=$(addsuffix .o, ${MODULES})
 ${BUILD}/${TARGET}: ${OBJS}
 	${FC} ${FF} $^ -o $@ -cpp  -llapack -lblas
 check: ${BUILD}/${TARGET}
-	cd ${EXAMPLE}/harm; ${BUILD}/${TARGET}
+	cd ${EXAMPLE}/harm; python3 run.py
 
 
 

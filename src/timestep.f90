@@ -15,6 +15,11 @@ contains
     call object_get_i(o, "nt", nt_)
     call object_get_d(o, "dt", dt_)
     call object_get_i(o, "ntskip", ntskip_)
+    write(*,*) "TimeStep_new_json begin"
+    write(*,*) "nt:", nt_
+    write(*,*) "dt:", dt_
+    write(*,*) "ntskip:", ntskip_
+    write(*,*) "TimeStep_new_json end"
   end subroutine TimeStep_new_json
   subroutine TimeStep_dump(ifile)
     use mod_fjson

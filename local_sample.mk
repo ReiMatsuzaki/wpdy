@@ -1,4 +1,4 @@
-NAEWDY_PATH=${HOME}/src/enint
+WPDY_PATH=${HOME}/src/enint
 ## -- gfortran options --
 FC=gfortran
 FF=-Wall -pedantic -fbounds-check -O -Wuninitialized -fbacktrace -g -cpp -ffree-line-length-512

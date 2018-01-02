@@ -17,32 +17,41 @@ wpdy = os.path.expanduser("~/src/wpdy/build/wpdy")
 
 # ==== calc info ====
 xt = 1.0
-pt = 0.0
+pt = 1.0
 at = 1.0
 
-nx = 100
-dx = 0.1
-x0 = -5.0
+xs = np.linspace(-10.0, 10.0, 256*2)
+nx = len(xs)
+x0 = xs[0]
+dx = xs[1]-xs[0]
 
-dt = 1.0
-nt = 1
+dt = 0.1
+nt = 10
 ntskip = 1
 
-nstate = 2
+nstate = 1
 m = 1.0
 
 # ==== psi0 ====
-xs = x0 + np.arange(nx)*dx
 gs = np.exp(-at*(xs-xt)**2 + 1j*pt*(xs-xt))
-with open("psi0.csv", "w") as f:
+with open("psi0.idx.csv", "w") as f:
     f.write("i,j,re,im\n")
     for ix in range(nx):
-        f.write("{0},0,{1},{2}\n".format(ix, gs[ix].real, gs[ix].imag))
+        f.write("1,{0},{1},{2}\n".format(ix+1, gs[ix].real, gs[ix].imag))
+
+# ==== potential ====
+vs1 = 0.0*xs
+vs2 = 0.0*xs + 1.0
+#vs1 = xs**2
+#vs2 = xs**2 + 1.0        
+with open("v.idx.csv", "w") as f:
+    f.write("i,j,k,val\n")
+    for ix in range(nx):
+        f.write("1,1,{0},{1}\n".format(ix+1, vs1[ix]))
 
 # ==== wpdy ====
 j = {"wpdy": {"x0":x0, "nx":nx, "dx":dx, "m":m, "nstate":nstate },
-     "timestep": {"dt": 0.1, "nt":nt, "ntskip": 1}}
+     "timestep": {"dt": dt, "nt":nt, "ntskip": 1}}
 with open("wpdy.in.json", "w") as f:
-    s = json.dumps(j)
-    f.write(s)
+    f.write(json.dumps(j, indent=1))    
 subprocess.check_call([wpdy])

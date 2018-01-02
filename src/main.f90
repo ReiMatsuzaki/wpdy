@@ -7,9 +7,9 @@ subroutine run
   use Mod_WPDy_SplitOp
   use Mod_TimeStep
   implicit none
-  integer nx, it, itt, io, ix, istate, is
+  integer it, itt, io, ix, istate, jstate
   integer :: ifile = 12841
-  double precision dx, t, re, im
+  double precision t, re, im
   type(value) :: v
   complex(kind(0d0)) :: cdt
   character(10) :: out_it
@@ -27,19 +27,30 @@ subroutine run
   if(v%type .ne. TYPE_O) then
      throw_err("json value must be object", 1)
   end if  
-  nx = 100
-  dx = 0.1d0
+
   call object_get_idx(v%val_o, "wpdy", io); check_err()
   call WPDy_new_json(v%val_o%vals(io)%val_o); check_err()
-  call open_r(ifile, "psi0.csv"); check_err()
+  
+  ! -- psi0 --
+  call open_r(ifile, "psi0.idx.csv"); check_err()
   read(ifile,*)
   do
-     read(ifile, *, end=100) ix, istate, re, im
-     frs_(istate+1, 2*ix)   = re
-     frs_(istate+1, 2*ix+1) = im
-  end do
-100 close(ifile)  
+     read(ifile, *, end=100) istate, ix, re, im
+     frs_(istate, 2*(ix-1))   = re
+     frs_(istate, 2*(ix-1)+1) = im
+  end do  
+100 close(ifile)
   ifile = ifile + 1
+  ! -- V --
+  call open_r(ifile, "v.idx.csv"); check_err()
+  read(ifile,*)
+  do
+     read(ifile, *, end=101) istate, jstate, ix, re
+     vs_(istate, jstate, ix) = re
+  end do
+101 close(ifile)
+  ifile = ifile + 1
+  ! -- WPDy setup --
   call WPDy_setup ; check_err()
   call WPDy_SplitOp_setup ; check_err()
 
@@ -50,9 +61,9 @@ subroutine run
   ! ==== dump ====
   call mkdir_if_not("out"); check_err()
   call open_w(ifile, "out/xs.csv"); check_err()
-  write(ifile,*) "i,val"
+  write(ifile,*) "val"
   do ix = 1, nx_
-     write(ifile,*) ix-1, xs_(ix)
+     write(ifile,*) xs_(ix)
   end do  
 
   ! ==== calculation ====
@@ -62,30 +73,30 @@ subroutine run
      write(out_it, '("out/", I0)') it
      call mkdir_if_not(out_it); check_err()
      call WPDy_dump_coef(out_it); check_err()
-
-     call open_w(ifile, trim(out_it)//"/norm.csv"); check_err()
-     write(ifile,*) "i,val"
-     write(ifile,'("1,",f20.10)') sqrt(WPDy_rn(0))
-     close(ifile)
-     ifile = ifile + 1
      
-     call open_w(ifile, trim(out_it)//"/r.csv"); check_err()
-     write(ifile,*) "i,val"
-     write(ifile,'("1,",f20.10)') WPDy_rn(1)
-     close(ifile)
-     ifile = ifile + 1
-
-     call open_w(ifile, trim(out_it)//"/r2.csv"); check_err()
-     write(ifile,*) "i,val"
-     write(ifile,'("1,",f20.10)')  WPDy_rn(2)
-     close(ifile)
-     ifile = ifile + 1
-
-     call open_w(ifile, trim(out_it)//"/prob.csv"); check_err()
-     write(ifile,*) "i,val"
-     do is = 1, nstate_
-        write(ifile,'(i0,",",f20.10)')  is-1, WPDy_prob(is)
-     end do
+     !call open_w(ifile, trim(out_it)//"/norm.csv"); check_err()
+     !write(ifile,*) "i,val"
+     !write(ifile,'("1,",f20.10)') sqrt(WPDy_rn(0))
+     !close(ifile)
+     !ifile = ifile + 1
+     !
+     !call open_w(ifile, trim(out_it)//"/r.csv"); check_err()
+     !write(ifile,*) "i,val"
+     !write(ifile,'("1,",f20.10)') WPDy_rn(1)
+     !close(ifile)
+     !ifile = ifile + 1
+!
+!     call open_w(ifile, trim(out_it)//"/r2.csv"); check_err()
+!     write(ifile,*) "i,val"
+!     write(ifile,'("1,",f20.10)')  WPDy_rn(2)
+!     close(ifile)
+!     ifile = ifile + 1
+!
+!     call open_w(ifile, trim(out_it)//"/prob.csv"); check_err()
+!     write(ifile,*) "i,val"
+!     do istate = 1, nstate_
+!        write(ifile,'(i0,",",f20.10)')  istate-1, WPDy_prob(is)
+!     end do
 
      do itt = 1, ntskip_
         call WPDy_SplitOp_inte(cdt); check_err()
