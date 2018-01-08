@@ -29,6 +29,15 @@ ${BUILD}/utest_wpdy: ${OBJS}
 check_wpdy: ${BUILD}/utest_wpdy
 	${BUILD}/utest_wpdy
 
+# ==== utest (DVR) ====
+TARGET=utest_dvr
+MODULES=${MODS0} timer utest dvr ${TARGET}
+OBJS=$(addsuffix .o, ${MODULES})
+${BUILD}/utest_dvr: ${OBJS}
+	${FC} ${FF} $^ -o $@ -cpp  -llapack -lblas
+check_dvr: ${BUILD}/utest_dvr
+	${BUILD}/utest_dvr
+
 # ==== main ====
 TARGET=wpdy
 MODULES=${MODS0} timer fft4g fftsg2d fft wpdy timestep main

@@ -339,7 +339,48 @@ contains
     write(0,*) "str", str
     end_err()
   end subroutine convert_d
+  subroutine lapack_zgeev(H, n, w, UL, UR)
+    complex(kind(0d0)), intent(in) :: H(:, :)
+    integer, intent(in) :: n
+    complex(kind(0d0)), intent(out) :: w(:)
+    complex(kind(0d0)), intent(out) :: UL(:,:), UR(:,:)
+    complex(kind(0d0)) :: work(n**2+n)
+    double precision   :: rwork(3*n)
+    integer info
+    complex(kind(0d0)) :: HH(n, n)
+    integer i
+    complex(kind(0d0)) norm2
+
+    HH = H
+    info = 0
+    call ZGEEV('V', 'V', n, HH, n, w,&
+         UL, n, UR, n, work, n*n+n, rwork, info)
+    if(info .ne. 0) then
+       throw_err("Error on ZGEEV", 1)       
+    end if
+
+    do i = 1, n
+       norm2 = dot_product(UL(:,i), UR(:,i))
+       UL(:,i) = UL(:,i)/conjg(sqrt(norm2))
+       UR(:,i) = UR(:,i)/sqrt(norm2)
+    end do
+  end subroutine lapack_zgeev
 end module Mod_math
+
+module Mod_TimeInte
+  implicit none
+contains
+  subroutine TimeInte_eig(e, u, uH, dt, c)
+    complex(kind(0d0)), intent(in) :: e(:), u(:,:), uH(:,:), dt
+    complex(kind(0d0)), intent(inout) ::  c(:)
+    complex(kind(0d0)) :: ii = (0.0d0, 1.0d0)
+
+    c(:) = matmul(uH(:,:), c(:))
+    c(:) = exp(-ii*e(:)*dt) * c(:)
+    c(:) = matmul(u(:,:), c(:))
+    
+  end subroutine TimeInte_eig
+end module Mod_TimeInte
 
 module Mod_Sparse
   use mod_ErrHandle
