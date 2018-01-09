@@ -351,6 +351,38 @@ contains
     integer i
     complex(kind(0d0)) norm2
 
+    if(size(H,1).ne.n .or. size(H,2).ne.n) then
+       begin_err(1)
+       write(0,*) "H is invalid size "
+       write(0,*) "n:", n
+       write(0,*) "size(H):", size(H,1), size(H,2)
+       end_err()
+    end if
+
+    if(size(UR,1).ne.n .or. size(UR,2).ne.n) then
+       begin_err(1)
+       write(0,*) "UR is invalid size "
+       write(0,*) "n:", n
+       write(0,*) "size(UR):", size(UR,1), size(UR,2)
+       end_err()
+    end if
+    
+    if(size(UL,1).ne.n .or. size(UL,2).ne.n) then
+       begin_err(1)
+       write(0,*) "UL is invalid size "
+       write(0,*) "n:", n
+       write(0,*) "size(UL):", size(UL,1), size(UL,2)
+       end_err()
+    end if
+
+    if(size(w).ne.n ) then
+       begin_err(1)
+       write(0,*) "w is invalid size "
+       write(0,*) "n:", n
+       write(0,*) "size(w):", size(w)
+       end_err()
+    end if    
+    
     HH = H
     info = 0
     call ZGEEV('V', 'V', n, HH, n, w,&
@@ -365,11 +397,6 @@ contains
        UR(:,i) = UR(:,i)/sqrt(norm2)
     end do
   end subroutine lapack_zgeev
-end module Mod_math
-
-module Mod_TimeInte
-  implicit none
-contains
   subroutine TimeInte_eig(e, u, uH, dt, c)
     complex(kind(0d0)), intent(in) :: e(:), u(:,:), uH(:,:), dt
     complex(kind(0d0)), intent(inout) ::  c(:)
@@ -380,7 +407,86 @@ contains
     c(:) = matmul(u(:,:), c(:))
     
   end subroutine TimeInte_eig
-end module Mod_TimeInte
+end module Mod_math
+
+module Mod_TimeInteKrylov
+  use Mod_ErrHandle  
+  implicit none
+  integer :: n_, kn_
+  complex(kind(0d0)), allocatable :: u_(:,:), Hu_(:,:), kh_(:,:)
+  complex(kind(0d0)), allocatable :: ck_(:), kuR_(:,:),kuL_(:,:), kw_(:)
+contains
+  subroutine TimeInteKrylov_new(n, kn)
+    integer, intent(in) :: n, kn
+    n_ = n
+    kn_ = kn
+    allocate(u_(n,kn));   u_=0
+    allocate(Hu_(n,kn));  Hu_=0
+    allocate(kh_(kn,kn)); kh_=0
+    allocate(ck_(kn));    ck_=0
+    allocate(kuR_(kn,kn)); kuR_=0
+    allocate(kuL_(kn,kn)); kuL_=0
+    allocate(kw_(kn));     kw_=0
+  end subroutine TimeInteKrylov_new
+  subroutine TimeInteKrylov_delete
+    deallocate(u_, Hu_, kh_, ck_, kuR_, kuL_, kw_)
+  end subroutine TimeInteKrylov_delete
+  subroutine TimeIntekrylov_calc(hc, dt, c)
+    use Mod_Const, only : ii
+    use Mod_Math, only  : lapack_zgeev
+    interface
+       subroutine hc(c0, Hc0)
+         complex(kind(0d0)), intent(in)  :: c0(:)
+         complex(kind(0d0)), intent(out) :: Hc0(:)
+       end subroutine hc
+    end interface
+    complex(kind(0d0)), intent(in) :: dt
+    complex(kind(0d0)), intent(inout) :: c(:)
+
+    integer k
+    
+    if(size(c).ne.n_) then
+       throw_err("c: invalid size", 1)
+    end if
+
+    ! -- 1st proces --
+    u_(:,1) = c(:)
+    u_(:,1) = u_(:,1) / norm(u_(:,1))
+    call hc(u_(:,1), Hu_(:,1))
+    kh_(1,1) = dot_product(u_(:,1), Hu_(:,1))
+    
+    ! -- 2nd process --
+    u_(:,2) = Hu_(:,1) - kh_(1,1)*u_(:,1)
+    u_(:,2) = u_(:,2) / norm(u_(:,2))
+    call hc(u_(:,2), Hu_(:,2))
+    kh_(2,2) = dot_product(u_(:,2), Hu_(:,2))
+    kh_(1,2) = dot_product(u_(:,1), Hu_(:,2))
+    kh_(2,1) = conjg(kh_(1,2))
+
+    ! -- proceeding process --
+    do k = 2, kn_-1
+       u_(:,k+1) = Hu_(:,k) - kh_(k-1,k)*u_(:,k-1) - kh_(k,k)*u_(:,k)
+       u_(:,k+1) = u_(:,k+1) / norm(u_(:,k+1))
+       call hc(u_(:,k+1), Hu_(:,k+1))
+       kh_(k+1,k+1) = dot_product(u_(:,k+1), Hu_(:,k+1))
+       kh_(k,  k+1) = dot_product(u_(:,k),   Hu_(:,k+1))
+       kh_(k+1,k)   = conjg(kh_(k,k+1))
+
+    end do
+
+    ! -- integration --
+    call lapack_zgeev(kh_(:,:), kn_, kw_(:), kuL_(:,:), kuR_(:,:))!; check_err()
+    ck_(:) = exp(-ii*kw_*dt) * conjg(kuL_(1,:))
+    ck_(:) = matmul(kuR_(:,:), ck_(:))
+    c(:)  = matmul(u_(:,:), ck_(:))
+    
+  end subroutine TimeIntekrylov_calc
+  function norm(c) result(res)
+    complex(kind(0d0)), intent(in) :: c(:)
+    double precision :: res
+    res = sqrt(real(dot_product(c(:), c(:))))
+  end function norm     
+end module Mod_TimeInteKrylov
 
 module Mod_Sparse
   use mod_ErrHandle

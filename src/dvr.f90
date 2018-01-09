@@ -28,7 +28,6 @@ contains
     end do
     ws_(:) = dx_
     
-    
     c = sqrt(1.0d0/num_)
     z = -2.0*ii*pi/num_
     do al = 1, num_

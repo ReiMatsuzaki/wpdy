@@ -162,8 +162,8 @@ contains
     end if
     
     write(ifile,'(A,":Time_result begin")') trim(name_)
-
     call system_clock(t1, t_rate, t_max); check_err()
+
     if(t1<t0_) then
        dt = (t_max-t0_) + t1 + 1
     else
