@@ -397,24 +397,52 @@ contains
        UR(:,i) = UR(:,i)/sqrt(norm2)
     end do
   end subroutine lapack_zgeev
-  subroutine TimeInte_eig(e, u, uH, dt, c)
-    complex(kind(0d0)), intent(in) :: e(:), u(:,:), uH(:,:), dt
+  function norm(c) result(res)
+    complex(kind(0d0)), intent(in) :: c(:)
+    double precision :: res
+    res = sqrt(real(dot_product(c(:), c(:))))
+  end function norm
+end module Mod_math
+
+module Mod_TimeInteDiag
+  use Mod_ErrHandle
+  implicit none
+  private
+  integer :: n_
+  complex(kind(0d0)), allocatable :: e_(:), u_(:,:), uH_(:,:)
+  public :: TimeInteDiag_new, TimeInteDiag_delete, TimeInteDiag_calc
+contains
+  subroutine TimeInteDiag_new(h)
+    use Mod_math, only : lapack_zgeev
+    complex(kind(0d0)), intent(in) :: h(:,:)
+    n_ = size(h,1)
+    allocate(e_(n_), u_(n_,n_), uH_(n_,n_))
+    call lapack_zgeev(h, n_, e_, u_, uH_)
+    uH_ = conjg(transpose(uH_))
+  end subroutine TimeInteDiag_new
+  subroutine TImeInteDiag_delete
+    deallocate(e_, u_, uH_)
+  end subroutine TImeInteDiag_delete
+  subroutine TimeInteDiag_calc(dt, c)
+    complex(kind(0d0)), intent(in) :: dt
     complex(kind(0d0)), intent(inout) ::  c(:)
     complex(kind(0d0)) :: ii = (0.0d0, 1.0d0)
 
-    c(:) = matmul(uH(:,:), c(:))
-    c(:) = exp(-ii*e(:)*dt) * c(:)
-    c(:) = matmul(u(:,:), c(:))
+    c(:) = matmul(uH_(:,:), c(:))
+    c(:) = exp(-ii*e_(:)*dt) * c(:)
+    c(:) = matmul(u_(:,:), c(:))
     
-  end subroutine TimeInte_eig
-end module Mod_math
+  end subroutine TimeInteDiag_calc
+end module Mod_TimeInteDiag
 
 module Mod_TimeInteKrylov
   use Mod_ErrHandle  
   implicit none
+  private
   integer :: n_, kn_
   complex(kind(0d0)), allocatable :: u_(:,:), Hu_(:,:), kh_(:,:)
   complex(kind(0d0)), allocatable :: ck_(:), kuR_(:,:),kuL_(:,:), kw_(:)
+  public :: TimeInteKrylov_new, TimeInteKrylov_delete, TimeInteKrylov_calc
 contains
   subroutine TimeInteKrylov_new(n, kn)
     integer, intent(in) :: n, kn
@@ -433,7 +461,7 @@ contains
   end subroutine TimeInteKrylov_delete
   subroutine TimeIntekrylov_calc(hc, dt, c)
     use Mod_Const, only : ii
-    use Mod_Math, only  : lapack_zgeev
+    use Mod_Math, only  : lapack_zgeev, norm
     interface
        subroutine hc(c0, Hc0)
          complex(kind(0d0)), intent(in)  :: c0(:)
@@ -481,12 +509,9 @@ contains
     c(:)  = matmul(u_(:,:), ck_(:))
     
   end subroutine TimeIntekrylov_calc
-  function norm(c) result(res)
-    complex(kind(0d0)), intent(in) :: c(:)
-    double precision :: res
-    res = sqrt(real(dot_product(c(:), c(:))))
-  end function norm     
 end module Mod_TimeInteKrylov
+
+
 
 module Mod_Sparse
   use mod_ErrHandle

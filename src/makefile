@@ -31,7 +31,7 @@ check_wpdy: ${BUILD}/utest_wpdy
 
 # ==== utest (DVR) ====
 TARGET=utest_dvr
-MODULES=${MODS0} timer utest dvr ${TARGET}
+MODULES=${MODS0} timer utest dvr elnuc ${TARGET}
 OBJS=$(addsuffix .o, ${MODULES})
 ${BUILD}/utest_dvr: ${OBJS}
 	${FC} ${FF} $^ -o $@ -cpp  -llapack -lblas
@@ -47,5 +47,12 @@ ${BUILD}/${TARGET}: ${OBJS}
 check: ${BUILD}/${TARGET}
 	cd ${EXAMPLE}/harm; python3 run.py
 
-
+# ==== main (DVR) ====
+TARGET=wpdy_dvr
+MODULES=${MODS0} strutil argparser timer dvr elnuc main_dvr
+OBJS=$(addsuffix .o, ${MODULES})
+${BUILD}/${TARGET}: ${OBJS}
+	${FC} ${FF} $^ -o $@ -cpp  -llapack -lblas
+check_main_dvr: ${BUILD}/${TARGET}
+	echo "hi"
 

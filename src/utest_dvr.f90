@@ -29,73 +29,6 @@ contains
   end subroutine Harm_hc
 end module Mod_Harm
 
-module Mod_ElNuc
-  use Mod_ExpDVR
-  implicit none
-  integer :: nstate_
-  double precision :: m_
-  complex(kind(0d0)), allocatable :: Hel_(:,:,:), Xij_(:,:,:), D1_(:,:), D2_(:,:)
-contains
-  subroutine ElNuc_new(m, nstate)
-    ! assume ExpDVR is already prepared
-    double precision, intent(in) :: m
-    integer, intent(in) :: nstate
-    m_ = m
-    nstate_ = nstate
-    allocate(Hel_(num_,nstate,nstate), Xij_(num_,nstate,nstate))
-    allocate(D1_(num_,num_), D2_(num_,num_))
-    call ExpDVR_d1mat(D1_)
-    call ExpDVR_d2mat(D2_)
-    
-  end subroutine ElNuc_new
-  subroutine ElNuc_delete
-    deallocate(Hel_, Xij_, D1_, D2_)
-  end subroutine ElNuc_delete
-  subroutine ElNuc_h(h)
-    complex(kind(0d0)), intent(out) :: h(:,:)
-    integer a, b, i, j, idx, jdx
-    
-    h(:,:) = 0
-    do a = 1, num_
-       do b = 1, num_
-          do i = 1, nstate_
-             do j = 1, nstate_
-                idx = a*(nstate_-1)+i
-                jdx = b*(nstate_-1)+j
-                if(a==b) then
-                   h(idx,jdx) =  h(idx,jdx) + Hel_(a,i,j)
-                end if
-                if(i==j) then
-                   h(idx,jdx) =  h(idx,jdx) -1/(2*m_)*D2_(a,b)
-                end if
-                h(idx,jdx) =  h(idx,jdx) - (1/m_)*Xij_(a,i,j)*D1_(a,b)
-             end do
-          end do
-       end do
-    end do
-  end subroutine ElNuc_h
-  subroutine ElNuc_hc(c, hc)
-    complex(kind(0d0)), intent(in) :: c(:)
-    complex(kind(0d0)), intent(out) :: hc(:)
-    integer a, b, i0, i1, j0, j1
-
-    hc(:) = 0
-    do a = 1, num_
-       i0 = a*(nstate_-1)+1
-       i1 = a*(nstate_-1)+nstate_
-       hc(i0:i1) = hc(i0:i1) + matmul(Hel_(a,:,:), c(i0:i1))
-       do b = 1, num_
-          j0 = b*(nstate_-1)+1
-          j1 = b*(nstate_-1)+nstate_
-          hc(i0:i1) = hc(i0:i1) &
-               - 1/m_*matmul(Xij_(a,:,:), c(j0:j1)) * D1_(a,b) &
-               - 1/(2*m_)*D2_(a,b)*c(j0:j1)
-       end do
-    end do
-    
-  end subroutine ElNuc_hc
-end module Mod_ElNuc
-
 module Mod_TestDVR
   use Mod_UtestCheck
   use Mod_ExpDVR
@@ -251,7 +184,8 @@ contains
   end subroutine test_eig
   subroutine test_time_inte
     use Mod_const, only : ii
-    use Mod_math, only : lapack_zgeev, TimeInte_eig
+    use Mod_math, only : lapack_zgeev
+    use Mod_TimeInteDiag
     use Mod_TimeInteKrylov
     use Mod_Harm
     double precision, parameter :: m = 1.0d0
@@ -263,7 +197,6 @@ contains
     integer, parameter :: num = 2*n+1
     complex(kind(0d0)) :: dt = 1.0d0
     complex(kind(0d0)) :: g0(num), c(num), c0(num), c1(num)
-    complex(kind(0d0)) :: ws(num), UR(num,num), UL(num,num)
     integer i
 
     call ExpDVR_new(n, -5.0d0, 5.0d0)
@@ -275,10 +208,11 @@ contains
 
     ! -- integration by diagonalize --
     c0(:) = c(:) / sqrt(sum(abs(c(:))**2))
-    call lapack_zgeev(H_, num, ws, UL, UR)    
+    call TimeInteDiag_new(h_(:,:))
     do i = 1, nt
-       call TimeInte_eig(ws(:), UR(:,:), conjg(transpose(UL(:,:))), dt, c0(:))
+       call TimeInteDiag_calc(dt, c0(:))
     end do
+    call TimeInteDiag_delete
     call expect_near(1.0d0, sum(abs(c0(:))**2), 1.0d-8)
 
     ! -- integration by Krylov --
@@ -356,8 +290,9 @@ contains
     
   end subroutine test_elnuc
   subroutine test_time_inte2
-    use Mod_math, only : lapack_zgeev, TimeInte_eig
+    use Mod_math, only : lapack_zgeev
     use Mod_TimeInteKrylov
+    use Mod_TimeInteDiag
     use Mod_ElNuc
     use Mod_Timer
     integer, parameter :: n = 128
@@ -372,7 +307,6 @@ contains
     integer, parameter :: nn=num*nstate
     complex(kind(0d0)) :: g0(num), cg0(num), c0(nn), c1(nn)
     complex(kind(0d0)) :: h(nn,nn)
-    complex(kind(0d0)) :: ws(nn), UR(nn,nn), UL(nn,nn)
     integer, parameter :: nt = 1
     type(Obj_Timer) :: timer
     integer i
@@ -406,13 +340,15 @@ contains
     call ElNuc_h(h)
     call Timer_end(timer, "elnuc_h")
     call Timer_begin(timer, "diag")
-    call lapack_zgeev(h, num*nstate_, ws, UL, UR)
+    call TimeInteDiag_new(h)
     call Timer_end(timer, "diag")
     call Timer_begin(timer, "inte_eig")
     do i = 1, nt
-       call TimeInte_eig(ws(:), UR(:,:), conjg(transpose(UL(:,:))), dt, c0(:))
+       call TimeInteDiag_calc(dt, c0(:))
     end do
+    call TimeInteDiag_delete
     call Timer_end(timer, "inte_eig")
+    
     
     ! -- time integration by Krylov --
     call Timer_begin(timer, "inte_krylov")
@@ -428,8 +364,8 @@ contains
     call TimeInteKrylov_delete
     call Timer_end(timer, "inte_krylov")
     
-    ! -- compare
-    write(*,*) sum(abs(c0(1:10)-c1(1:10)))/size(c0)
+    ! -- compare --
+    call expect_near(0.0d0, sum(abs(c0(1:10)-c1(1:10)))/size(c0), 1.0d-5)
     
     ! -- finalize --
     call ExpDVR_delete
