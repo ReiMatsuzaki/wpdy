@@ -374,11 +374,13 @@ contains
     complex(kind(0d0)) :: h(nn,nn)
     complex(kind(0d0)) :: ws(nn), UR(nn,nn), UL(nn,nn)
     integer, parameter :: nt = 1
+    type(Obj_Timer) :: timer
     integer i
 
     ! -- initialize --
     call ExpDVR_new(n, -5.0d0, 5.0d0)
     call ElNuc_new(m, nstate)
+    call Timer_new(timer, "time_inte2", .false.)
 
     ! -- Matrix --
     Hel_(:,1,1) = m*w*w/2 *xs_(:)**2
@@ -400,20 +402,20 @@ contains
     c1(:) = c0(:)
     
     ! -- time integration by diagonalization--
-    call Timer_begin("elnuc_h")
+    call Timer_begin(timer, "elnuc_h")
     call ElNuc_h(h)
-    call Timer_end("elnuc_h")
-    call Timer_begin("diag")
+    call Timer_end(timer, "elnuc_h")
+    call Timer_begin(timer, "diag")
     call lapack_zgeev(h, num*nstate_, ws, UL, UR)
-    call Timer_end("diag")
-    call Timer_begin("inte_eig")
+    call Timer_end(timer, "diag")
+    call Timer_begin(timer, "inte_eig")
     do i = 1, nt
        call TimeInte_eig(ws(:), UR(:,:), conjg(transpose(UL(:,:))), dt, c0(:))
     end do
-    call Timer_end("inte_eig")
+    call Timer_end(timer, "inte_eig")
     
     ! -- time integration by Krylov --
-    call Timer_begin("inte_krylov")
+    call Timer_begin(timer, "inte_krylov")
     call TimeInteKrylov_new(nn, 16)
     if(get_err().ne.0) then
           begin_err(1)
@@ -424,7 +426,7 @@ contains
        call TimeInteKrylov_calc(ElNuc_hc, dt, c1(:)); check_err()
     end do
     call TimeInteKrylov_delete
-    call Timer_end("inte_krylov")
+    call Timer_end(timer, "inte_krylov")
     
     ! -- compare
     write(*,*) sum(abs(c0(1:10)-c1(1:10)))/size(c0)
@@ -433,7 +435,8 @@ contains
     call ExpDVR_delete
     call ElNuc_delete
     
-    call Timer_result
+    call Timer_result(timer)
+    call Timer_delete(timer)
 
   end subroutine test_time_inte2
 end module Mod_TestDVR

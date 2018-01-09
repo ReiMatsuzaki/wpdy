@@ -1,156 +1,167 @@
-#include "macros.fpp"
+! store calculating timer and print as table
 
+#include "macros.fpp"
 module Mod_Timer
   use Mod_ErrHandle
   implicit none
   private
-  type Record
+  type Obj_Record
      character(100) :: key
      double precision :: tsum
      integer :: t0
      integer :: num
      logical :: act
-  end type Record
-  character(10) :: name_
-  integer :: size_, capacity_
-  type(Record), allocatable :: rec_(:)
-  integer t0_
-  logical print_key_
-  public Timer_new, Timer_delete, Timer_time, Timer_begin, Timer_end, Timer_result
+  end type Obj_Record
+  type Obj_Timer
+     character(10) :: name
+     logical :: print_key
+     integer :: size, capacity
+     type(Obj_Record), allocatable :: rec(:)
+     integer t0     
+  end type Obj_Timer  
+  public Timer_new, Timer_delete, Timer_time, Timer_begin, Timer_end, Timer_result, Obj_Timer
 contains
-  subroutine init(num)
+  subroutine init(this, num)
+    type(Obj_Timer) :: this
     integer, intent(in) :: num
     integer i
-    allocate(rec_(num))
+    allocate(this%rec(num))
     do i = 1, num
-       rec_(i)%key = ""
-       rec_(i)%tsum = 0
-       rec_(i)%t0 = 0
-       rec_(i)%num = 0
-       rec_(i)%act = .false.
+       this%rec(i)%key = ""
+       this%rec(i)%tsum = 0
+       this%rec(i)%t0 = 0
+       this%rec(i)%num = 0
+       this%rec(i)%act = .false.
     end do
   end subroutine init
-  subroutine extend
+  subroutine extend(this)
+    type(Obj_Timer) :: this
     integer num0, num1
-    type(Record), allocatable :: tmp(:)
+    type(Obj_Record), allocatable :: tmp(:)
     
-    num0 = capacity_
+    num0 = this%capacity
     num1 = 2*num0
 
     allocate(tmp(num0))
-    write(*,*) "timer", shape(tmp), shape(rec_)
-    tmp(:) = rec_(:)
+    tmp(:) = this%rec(:)
 
-    deallocate(rec_)
-    call init(num1); check_err()
-    rec_(:num0) = tmp(:)
+    deallocate(this%rec)
+    call init(this, num1); check_err()
+    this%rec(:num0) = tmp(:)
     
     deallocate(tmp)
-    capacity_ = num1
+    this%capacity = num1
     
   end subroutine extend
-  function find(key) result(res)
+  function find(this, key) result(res)
+    type(Obj_Timer) :: this
     character(*), intent(in) :: key
     integer :: res
     integer i
 
     res = 0
-    do i = 1, size_
-       if(trim(rec_(i)%key)==trim(key)) then
+    do i = 1, this%size
+       if(trim(this%rec(i)%key)==trim(key)) then
           res = i
           return
        end if
     end do
     
   end function find
-  function Timer_time(key) result(res)
+  function Timer_time(this, key) result(res)
+    type(Obj_Timer) :: this
     character(*), intent(in) :: key
     double precision res
     integer idx
 
-    idx = find(trim(key))
+    idx = find(this, trim(key))
 
-    res = rec_(idx)%tsum
+    res = this%rec(idx)%tsum
     
   end function Timer_time
-  subroutine Timer_new(name, print_key)
+  subroutine Timer_new(this, name, print_key)
+    type(Obj_Timer) :: this
     character(*), intent(in) :: name
     logical, intent(in) :: print_key
     integer, parameter :: NUM0=1024
-    name_ = name
-    size_ = 0
-    capacity_ = NUM0
-    print_key_ = print_key
-    call system_clock(t0_)
-    call init(NUM0)
+    this%name = name
+    this%size = 0
+    this%capacity = NUM0
+    this%print_key = print_key
+    call system_clock(this%t0)
+    call init(this, NUM0)
   end subroutine Timer_new
-  subroutine Timer_delete
-    deallocate(rec_)
+  subroutine Timer_delete(this)
+    type(Obj_Timer) :: this
+    deallocate(this%rec)
   end subroutine Timer_delete
-  subroutine Timer_begin(key)
+  subroutine Timer_begin(this, key)
+    type(Obj_Timer) :: this
     character(*), intent(in) :: key
     integer idx
-    if(print_key_) then
-       write(*,'(A,":",A," begin")') trim(name_), key
+    if(this%print_key) then
+       write(*,'(A,":",A," begin")') trim(this%name), key
     end if
-    idx = find(key)
+    idx = find(this, key)
     if(idx==0) then
-       if(size_+1>capacity_) then
-          call extend
+       if(this%size+1 > this%capacity) then
+          call extend(this)
        end if       
-       size_ = size_+1
-       rec_(size_)%key = key
-       rec_(size_)%tsum = 0
-       call system_clock(rec_(size_)%t0)
-       rec_(size_)%num = 0
-       rec_(size_)%act = .true.
+       this%size = this%size+1
+       this%rec(this%size)%key = key
+       this%rec(this%size)%tsum = 0
+       call system_clock(this%rec(this%size)%t0)
+       this%rec(this%size)%num = 0
+       this%rec(this%size)%act = .true.
     else
-       if(rec_(idx)%act) then
+       if(this%rec(idx)%act) then
           begin_err(1)
           write(0,*) "Timer_start is called for active timer key."
           write(0,*) "key:", key
           end_err()
        end if
-       call system_clock(rec_(idx)%t0)
-       rec_(idx)%act = .true.
+       call system_clock(this%rec(idx)%t0)
+       this%rec(idx)%act = .true.
     end if
   end subroutine Timer_begin
-  subroutine Timer_end(key)
+  subroutine Timer_end(this,key)
+    type(Obj_Timer) :: this
     character(*), intent(in) :: key
     integer idx
     integer dt, t0, t1, t_rate, t_max
 
-    idx = find(key)
+    idx = find(this, key)
     if(idx==0) then
        begin_err(1)
        write(0,*) "Timer_end is called for not started record"
        write(0,*) "key:", key
        end_err()
     else
-       if(.not.rec_(idx)%act) then
+       if(.not.this%rec(idx)%act) then
           begin_err(1)
           write(0,*) "Timer_end is called for non active started record"
           write(0,*) "key:", key
           end_err()
        end if
-       t0 = rec_(idx)%t0
+       t0 = this%rec(idx)%t0
        call system_clock(t1, t_rate, t_max); check_err()
        if(t1<t0) then
           dt = (t_max-t0) + t1 + 1
        else
           dt = t1-t0
        end if
-       rec_(idx)%tsum = rec_(idx)%tsum + (1.0d0*dt)/t_rate
-       rec_(idx)%num = rec_(idx)%num+1
-       rec_(idx)%act = .false.
+       this%rec(idx)%tsum = this%rec(idx)%tsum + (1.0d0*dt)/t_rate
+       this%rec(idx)%num  = this%rec(idx)%num+1
+       this%rec(idx)%act  = .false.
     end if
 
-    if(print_key_) then
-       write(*,'(A,":",A," end")') trim(name_), key
+    if(this%print_key) then
+       write(*,'(A,":",A," end")') trim(this%name), key
     end if
     
   end subroutine Timer_end
-  subroutine Timer_result(in_ifile)
+  subroutine Timer_result(this,in_ifile)
+    type(Obj_Timer) :: this
     integer, optional :: in_ifile
     integer i, ifile
     integer t1, t_rate, t_max, dt
@@ -161,25 +172,25 @@ contains
        ifile = 6
     end if
     
-    write(ifile,'(A,":Time_result begin")') trim(name_)
+    write(ifile,'(A,":Time_result begin")') trim(this%name)
     call system_clock(t1, t_rate, t_max); check_err()
 
-    if(t1<t0_) then
-       dt = (t_max-t0_) + t1 + 1
+    if(t1<this%t0) then
+       dt = (t_max-this%t0) + t1 + 1
     else
-       dt = t1-t0_
+       dt = t1-this%t0
     end if
     write(ifile,*) "total time;", (1.0d0*dt)/t_rate
        
-    do i = 1, size_
-       if(rec_(i)%act) then
+    do i = 1, this%size
+       if(this%rec(i)%act) then
           begin_err(1)
           write(0,*) "active record is found."
-          write(0,*) "key:", rec_(i)%key
+          write(0,*) "key:", this%rec(i)%key
           end_err()
        end if
-       write(ifile,'(A30, I10, f20.5)') trim(rec_(i)%key), rec_(i)%num, rec_(i)%tsum
+       write(ifile,'(A30, I10, f20.5)') trim(this%rec(i)%key), this%rec(i)%num, this%rec(i)%tsum
     end do
-    write(ifile,'(A,":Time_result end")') trim(name_)
+    write(ifile,'(A,":Time_result end")') trim(this%name)
   end subroutine Timer_result
 end module Mod_timer

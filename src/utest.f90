@@ -3,12 +3,11 @@
 module mod_Utest
   use Mod_Timer
   use Mod_ErrHandle
-  implicit none  
-!  private
+  implicit none
   integer, save, private :: num_utest
   integer, save, private :: num_failed
-  character(10) :: sub_title_
-!  public:: utest_check_eq, utest_check_near  
+  character(10), private :: sub_title_
+  type(Obj_Timer), private :: timer_
 contains 
   ! ==== constructors ==== 
   subroutine utest_new
@@ -17,14 +16,14 @@ contains
     num_failed = 0
     write(*,'("[=========] ", A)') "Unite test begin"
 
-    call Timer_new("utest", .false.); check_err()
+    call Timer_new(timer_, "utest", .false.); check_err()
     
   end subroutine utest_new
   subroutine utest_delete
     write(*,'("[=========] ", A)') "Unite test end"
     write(*,'("[ PASSED  ] ", i5)') num_utest-num_failed
     write(*,'("[ FAILED  ] ", i5)') num_failed
-    call  Timer_delete()
+    call  Timer_delete(timer_)
 
   end subroutine utest_delete
 
@@ -35,7 +34,7 @@ contains
        throw_err("title can not empty", 1)
     end if
 
-    call Timer_begin(title); check_err()
+    call Timer_begin(timer_, title); check_err()
     
     sub_title_ = title
     write(*,'("[ RUN     ] ", A)') trim(title)
@@ -43,8 +42,8 @@ contains
   end subroutine Utest_sub_begin
   subroutine Utest_sub_end()
     double precision t
-    call Timer_end(sub_title_)
-    t = Timer_time(sub_title_)
+    call Timer_end(timer_, sub_title_)
+    t = Timer_time(timer_, sub_title_)
     if(get_err().eq.0) then
        write(*,'("[      OK ] ", A, "  (", f10.5, " ms)")') sub_title_, t*1000
     else
