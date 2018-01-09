@@ -35,7 +35,7 @@ subroutine run
   call open_r(ifile, "psi0.idx.csv"); check_err()
   read(ifile,*)
   do
-     read(ifile, *, end=100) istate, ix, re, im
+     read(ifile, *, end=100) ix, istate, re, im
      frs_(istate, 2*(ix-1))   = re
      frs_(istate, 2*(ix-1)+1) = im
   end do  

@@ -54,5 +54,6 @@ OBJS=$(addsuffix .o, ${MODULES})
 ${BUILD}/${TARGET}: ${OBJS}
 	${FC} ${FF} $^ -o $@ -cpp  -llapack -lblas
 check_main_dvr: ${BUILD}/${TARGET}
-	echo "hi"
+	cd ${EXAMPLE}/harm_dvr; python run.py
+
 

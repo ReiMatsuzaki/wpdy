@@ -139,5 +139,5 @@ contains
 end module Mod_MainDVR
 program main
   use Mod_MainDVR
-  
+  call MainDVR_run
 end program main
