@@ -55,7 +55,7 @@ contains
     call test_tinte_simple
     call Utest_sub_end
 
-    call Utest_sub_begin("test_elfunc")
+    call Utest_sub_begin("test_elnuc")
     call test_elnuc
     call Utest_sub_end
 
@@ -248,7 +248,7 @@ contains
     double precision, parameter :: m = 1.2d0
     double precision, parameter :: w = 1.0d0
     double precision, parameter :: a = m*w/2
-    double precision, parameter :: x0 = 1.0
+    double precision, parameter :: x0 = 0.0
     double precision, parameter :: p0 = 0.0
     integer, parameter :: nstate = 2
     complex(kind(0d0)) :: g0(num), cg0(num), c0(num*nstate), c1(num*nstate)
@@ -266,7 +266,7 @@ contains
     Hel_(:,2,1) = xs_(:)/10
     Xij_(:,:,:) = 0
     Xij_(:,2,1) = exp(-(xs_(:)-1)**2)
-    Xij_(:,1,2) = -Xij_(:,1,2)
+    Xij_(:,1,2) = -Xij_(:,2,1)
 
     ! -- coefficient --
     g0(:) = exp(-a*(xs_-x0)**2 + ii*p0*(xs_-x0))

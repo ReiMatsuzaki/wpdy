@@ -84,4 +84,22 @@ contains
     end do
     call throw_err_failed_find_name(name)   
   end subroutine arg_parse_dvec
+  function arg_parse_exist(name) result(res)
+    character(*), intent(in) :: name
+    logical :: res
+    integer i, num
+    character(100) :: ele
+    
+    num = iargc()    
+    do i = 1, num
+       call getarg(i, ele)
+       if(trim(name).eq.trim(ele)) then
+          res = .true.
+          return
+       end if
+    end do
+
+    res = .false.
+    
+  end function arg_parse_exist
 end module Mod_ArgParser

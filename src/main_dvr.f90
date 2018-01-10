@@ -14,16 +14,31 @@ module Mod_MainDVR
   character(10) :: inte_
 contains
   subroutine MainDVR_run
+    use Mod_ArgParser
+    character(10) :: runtype
     write(*,*)
     write(*,*) "WPDY_DVR program begin"
     write(*,*)
 
     call ErrHandle_new
     call Timer_new(timer_, "WPDY_DVR", .true.)
-    
-    call new
-    call calc
-    call delete
+
+    if(arg_parse_exist("-runtype")) then
+       call arg_parse_s("-runtype", runtype)
+    else
+       runtype = "dynamics"
+    end if
+    write(*,*) "runtype: ", runtype
+    if(runtype.eq."dynamics") then
+       call new
+       call calc
+       call delete
+    else if(runtype.eq."check_hc") then
+       call new
+       call check_hc
+    else
+       throw_err("invalid runtype", 1)
+    end if
 
     call Timer_result(timer_)
     call ErrHandle_delete
@@ -37,12 +52,10 @@ contains
     use Mod_ElNuc
     use Mod_ArgParser
     use Mod_sys
-    integer :: n
+    integer :: n, kn
     double precision :: x0, xN
     character(100) :: fn_hel, fn_xij, fn_psi0
-    double precision :: mass
-    complex(kind(0d0)), allocatable :: h(:,:)
-    integer :: kn, nn
+    double precision :: mass    
 
     call Timer_begin(timer_, "parse_arg")
     call arg_parse_i("-dvr_n", n); check_err()
@@ -78,21 +91,15 @@ contains
     ! -- normalization --
     c_(:) = c_(:) / sqrt(sum(abs(c_(:))**2))
 
-    ! -- precalculation --
-    call Timer_begin(timer_, "precalc")
+    ! -- time integrator --    
     if(inte_.eq."diag") then
-       nn = num_*nstate_
-       allocate(h(nn,nn))
-       call ElNuc_h(h); check_err()
-       call TimeInteDiag_new(h); check_err()
-       deallocate(h)
+       call TimeInteDiag_new(nstate_*num_); check_err()
     else if(inte_.eq."krylov") then
        call arg_parse_i("-krylov_num", kn); check_err()
        call TimeInteKrylov_new(nstate_*num_, kn); check_err()
     else
        throw_err("invalid inte", 1)
     end if
-    call Timer_end(timer_, "precalc")
     
   end subroutine new
   subroutine new_read( fn_psi0, fn_hel, fn_xij)
@@ -185,8 +192,6 @@ contains
     write(ifile,'(A)') '    "xN": ', xN_
     write(ifile,'(A)') "}"
     close(ifile)
-
-    
     call Timer_end(timer_, "new_read")
   end subroutine new_dump
   subroutine calc
@@ -196,9 +201,21 @@ contains
     character(100) :: out_it, fn_coef
     complex(kind(0d0))  :: t
     integer :: ifile = 23412
-    integer :: i
+    integer :: i, nn
+    complex(kind(0d0)), allocatable :: h(:,:)
 
+    ! -- precalc --
+    call Timer_begin(timer_, "precalc")    
+    if(inte_.eq."diag") then
+       nn = num_*nstate_
+       allocate(h(nn,nn))       
+       call ElNuc_h(h); check_err()       
+       call TimeInteDiag_precalc(h); check_err()
+       deallocate(h)
+    end if
+    call Timer_end(timer_, "precalc")
     
+    ! -- time loop --
     do it = 0, nt_/ntskip_
 
        write(*,*) "wpdy_dvr ", it, "/", nt_/ntskip_
@@ -229,6 +246,25 @@ contains
     end do
         
   end subroutine calc
+  subroutine check_hc
+    use Mod_ElNuc, only : nstate_, ElNuc_h, ElNuc_hc
+    use Mod_ExpDVR, only : num_
+    complex(kind(0d0)), allocatable :: h(:,:), c0(:), c1(:)
+    integer :: nn
+    
+    call Timer_begin(timer_, "check_hc")
+    
+    nn = num_*nstate_
+    allocate(h(nn,nn), c0(nn), c1(nn))
+    
+    call ElNuc_h(h(:,:)); check_err()
+    c0(:) = matmul(h(:,:), c_(:))
+    call ElNuc_hc(c_(:), c1(:))
+
+    write(*,*) "diff:", sum(abs(c1-c0))/size(c0)
+
+    call Timer_end(timer_, "check_hc")
+  end subroutine check_hc
   subroutine delete
     if(inte_.eq."diag") then
        call TimeInteDiag_delete

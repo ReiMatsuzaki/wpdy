@@ -410,19 +410,22 @@ module Mod_TimeInteDiag
   private
   integer :: n_
   complex(kind(0d0)), allocatable :: e_(:), u_(:,:), uH_(:,:)
-  public :: TimeInteDiag_new, TimeInteDiag_delete, TimeInteDiag_calc
+  public :: TimeInteDiag_new, TimeInteDiag_delete, TimeInteDiag_calc, TimeInteDiag_precalc
 contains
-  subroutine TimeInteDiag_new(h)
-    use Mod_math, only : lapack_zgeev
-    complex(kind(0d0)), intent(in) :: h(:,:)
-    n_ = size(h,1)
-    allocate(e_(n_), u_(n_,n_), uH_(n_,n_))
-    call lapack_zgeev(h, n_, e_, u_, uH_)
-    uH_ = conjg(transpose(uH_))
+  subroutine TimeInteDiag_new(n)
+    integer, intent(in) :: n
+    n_ = n
+    allocate(e_(n_), u_(n_,n_), uH_(n_,n_))    
   end subroutine TimeInteDiag_new
   subroutine TImeInteDiag_delete
     deallocate(e_, u_, uH_)
   end subroutine TImeInteDiag_delete
+  subroutine TimeInteDiag_precalc(h)
+    use Mod_math, only : lapack_zgeev
+    complex(kind(0d0)), intent(in) :: h(:,:)
+    call lapack_zgeev(h, n_, e_, u_, uH_)
+    uH_ = conjg(transpose(uH_))
+  end subroutine TimeInteDiag_precalc
   subroutine TimeInteDiag_calc(dt, c)
     complex(kind(0d0)), intent(in) :: dt
     complex(kind(0d0)), intent(inout) ::  c(:)
