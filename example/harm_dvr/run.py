@@ -19,12 +19,12 @@ wpdy = os.path.expanduser("~/src/wpdy/build/wpdy_dvr")
 
 # ==== calc info ====
 nstate = 1
-m = 1.0
-w = 1.0
+m = 1.2
+w = 1.1
 a = m*w/2
 
-xt = 1.0
-pt = 1.0
+xt = 0.9
+pt = 0.0
 at = a
 
 n = 128

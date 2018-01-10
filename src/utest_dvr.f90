@@ -310,7 +310,7 @@ contains
     complex(kind(0d0)) :: dt = 1.0d0
     integer, parameter :: nstate = 1
     integer, parameter :: nn=num*nstate
-    complex(kind(0d0)) :: g0(num), cg0(num), c0(nn), c1(nn)
+    complex(kind(0d0)) :: g0(num), cg0(num), c0(nn)
     complex(kind(0d0)) :: h(nn,nn)
     integer, parameter :: nt = 1
     
@@ -333,9 +333,10 @@ contains
     call ExpDVR_fit(g0(:), cg0(:))
     cg0(:) = cg0(:) / sqrt(real(dot_product(cg0, cg0)))
     c0(:) = cg0(:)
-    c1(:) = c0(:)
+    write(*,*) "coef(t=0)"
+    write(*,*) c0(49)
     
-    ! -- time integration by diagonalization--
+    ! -- time integration by diagonalization--    
     call ElNuc_h(h)
     call TimeInteDiag_new(h)
     do i = 1, nt
@@ -343,6 +344,8 @@ contains
     end do
     call TimeInteDiag_delete
     call ExpDVR_at_x(c0(:), x, 0, psi0)
+    write(*,*) "coef(t=1)"
+    write(*,*) c0(49)
 
     ! -- exact --
     ! see Tannor's book p.29

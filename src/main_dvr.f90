@@ -8,6 +8,7 @@ module Mod_MainDVR
   implicit none
   type(Obj_Timer) :: timer_
   double precision :: dt_
+  complex(kind(0d0)) :: cdt_
   integer :: nstate_, nt_, ntskip_
   complex(kind(0d0)), allocatable :: c_(:)
   character(10) :: inte_
@@ -54,6 +55,7 @@ contains
     call arg_parse_i("-nstate", nstate); check_err()
 
     call arg_parse_d("-dt", dt_); check_err()
+    cdt_ = dt_
     call arg_parse_i("-nt", nt_); check_err()
     call arg_parse_i("-ntskip", ntskip_); check_err()
 
@@ -107,6 +109,12 @@ contains
        write(ifile, '(F20.10)') xs_(a)
     end do
     ifile = ifile + 1
+
+    call open_w(ifile, "out/ts.csv")
+    write(ifile, '(A)') "val"
+    do a = 0, nt_
+       write(ifile, '(F20.10)') a*dt_*ntskip_
+    end do
     
   end subroutine new_dump
   subroutine new_read( fn_psi0, fn_hel, fn_xij)
@@ -150,12 +158,13 @@ contains
     use Mod_sys
     integer :: it, itt
     character(100) :: out_it, fn_coef
-    complex(kind(0d0))  :: dt
+    complex(kind(0d0))  :: t
     integer :: ifile = 23412
     integer :: i
     do it = 0, nt_/ntskip_
-       
-       dt = it * ntskip_ * dt
+
+       write(*,*) "wpdy_dvr ", it, "/", nt_/ntskip_
+       t = it * ntskip_ * dt_
        write(out_it, '("out/", I0)') it       
        call mkdirp_if_not(out_it); check_err()
 
@@ -170,11 +179,11 @@ contains
 
        if(inte_.eq."diag") then
           do itt = 1, ntskip_
-             call TimeInteDiag_calc(dt, c_(:)); check_err()
+             call TimeInteDiag_calc(cdt_, c_(:)); check_err()
           end do
        else if(inte_.eq."krylov") then
           do itt = 1, ntskip_
-             call TimeInteKrylov_calc(ElNuc_hc, dt, c_(:)); check_err()
+             call TimeInteKrylov_calc(ElNuc_hc, cdt_, c_(:)); check_err()
           end do
        end if
        
