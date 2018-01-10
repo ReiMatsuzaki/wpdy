@@ -130,30 +130,7 @@ contains
     call ExpDVR_phi(xs, nd, phi); check_err()
     
     uc(:)  = matmul(u_(:,:), cs(:))
-    res(:) = matmul(transpose(phi(:,:)), uc(:))
-    !write(*,*) "u:"
-    !write(*,*) u_(1,:)
-    !write(*,*) u_(2,:)
-    !write(*,*) u_(3,:)
-    !write(*,*) "c:"
-    !write(*,*) cs
-    !write(*,*) "uc:"
-    !write(*,*) uc
-    !write(*,*) "tr"
-    !write(*,*) matmul(transpose(u_), cs)
-    !write(*,*) "mod_uc"
-    !u_(1,1) = 1*ii
-    !u_(1,2) = 2*ii
-    !u_(2,1) = 3*ii
-    !u_(2,2) = 4*ii
-    !cs(1) = 1*ii
-    !cs(2) = 3*ii
-    !write(*,*) u_(1:2,1:2)
-    !write(*,*) cs(1:2)
-    !write(*,*) matmul(u_(1:1,1:1), cs(1:1))
-    !write(*,*) matmul(u_(1:2,1:2), cs(1:2))
-    !write(*,*) matmul(u_(1:3,1:3), cs(1:3))
-    !write(*,*) phi(1,1), uc(1), res(1)
+    res(:) = matmul(transpose(phi(:,:)), uc(:))    
     
   end subroutine ExpDVR_at_xs
   subroutine ExpDVR_at_x(cs, x, nd, res)

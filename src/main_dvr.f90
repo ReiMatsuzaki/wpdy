@@ -9,7 +9,7 @@ module Mod_MainDVR
   type(Obj_Timer) :: timer_
   double precision :: dt_
   complex(kind(0d0)) :: cdt_
-  integer :: nstate_, nt_, ntskip_
+  integer :: nt_, ntskip_
   complex(kind(0d0)), allocatable :: c_(:)
   character(10) :: inte_
 contains
@@ -19,12 +19,13 @@ contains
     write(*,*)
 
     call ErrHandle_new
-    call Timer_new(timer_, "WPDY_DVR", .false.)
+    call Timer_new(timer_, "WPDY_DVR", .true.)
     
     call new
     call calc
     call delete
 
+    call Timer_result(timer_)
     call ErrHandle_delete
     call Timer_delete(timer_)
     
@@ -36,13 +37,14 @@ contains
     use Mod_ElNuc
     use Mod_ArgParser
     use Mod_sys
-    integer :: n, nstate
+    integer :: n
     double precision :: x0, xN
     character(100) :: fn_hel, fn_xij, fn_psi0
     double precision :: mass
     complex(kind(0d0)), allocatable :: h(:,:)
     integer :: kn, nn
-        
+
+    call Timer_begin(timer_, "parse_arg")
     call arg_parse_i("-dvr_n", n); check_err()
     call arg_parse_d("-dvr_x0", x0); check_err()
     call arg_parse_d("-dvr_xN", xN); check_err()
@@ -52,21 +54,24 @@ contains
     call arg_parse_s("-fn_xij", fn_xij); check_err()
 
     call arg_parse_d("-mass", mass); check_err()
-    call arg_parse_i("-nstate", nstate); check_err()
+    call arg_parse_i("-nstate", nstate_); check_err()
 
     call arg_parse_d("-dt", dt_); check_err()
     cdt_ = dt_
     call arg_parse_i("-nt", nt_); check_err()
     call arg_parse_i("-ntskip", ntskip_); check_err()
 
-    call arg_parse_s("-inte", inte_); check_err()    
+    call arg_parse_s("-inte", inte_); check_err()
+    call Timer_end(timer_, "parse_arg")
 
     ! -- initialization --
+    call Timer_begin(timer_, "initialize")
     call ExpDVR_new(n, x0, xN); check_err()
-    call ElNuc_new(mass, nstate); check_err()
+    call ElNuc_new(mass, nstate_); check_err()
     allocate(c_(nstate_*num_))
+    call Timer_end(timer_, "initialize")
 
-    ! -- read data and dump --
+    ! -- read data and dump --    
     call new_read(fn_psi0, fn_hel, fn_xij)
     call new_dump
 
@@ -74,6 +79,7 @@ contains
     c_(:) = c_(:) / sqrt(sum(abs(c_(:))**2))
 
     ! -- precalculation --
+    call Timer_begin(timer_, "precalc")
     if(inte_.eq."diag") then
        nn = num_*nstate_
        allocate(h(nn,nn))
@@ -86,43 +92,17 @@ contains
     else
        throw_err("invalid inte", 1)
     end if
+    call Timer_end(timer_, "precalc")
     
   end subroutine new
-  subroutine new_dump
-    use Mod_ExpDVR
-    use Mod_Sys
-    integer :: ifile = 23433
-    integer a
-    
-    call mkdirp_if_not("out"); check_err()
-    
-    call open_w(ifile, "out/ws.csv")
-    write(ifile, '(A)') "val"
-    do a = 1, num_
-       write(ifile, '(F20.10)') ws_(a)
-    end do
-    ifile = ifile + 1
-
-    call open_w(ifile, "out/xs.csv")
-    write(ifile, '(A)') "val"
-    do a = 1, num_
-       write(ifile, '(F20.10)') xs_(a)
-    end do
-    ifile = ifile + 1
-
-    call open_w(ifile, "out/ts.csv")
-    write(ifile, '(A)') "val"
-    do a = 0, nt_
-       write(ifile, '(F20.10)') a*dt_*ntskip_
-    end do
-    
-  end subroutine new_dump
   subroutine new_read( fn_psi0, fn_hel, fn_xij)
     use Mod_ElNuc
     integer :: ifile = 23421
     character(100), intent(in) :: fn_hel, fn_xij, fn_psi0
     integer a, i, j, k
     double precision re, im
+
+    call Timer_begin(timer_, "new_read")
     
     call open_r(ifile, fn_psi0); check_err()
     read(ifile, '()')
@@ -148,11 +128,67 @@ contains
     do
        read(ifile, *, end=101) i, j, k, re, im
        Xij_(i,j,k) = dcmplx(re, im)
-    end do
+    end do    
 101 close(ifile)
     ifile = ifile + 1
+
+    call Timer_end(timer_, "new_read")
     
   end subroutine new_read
+  subroutine new_dump
+    use Mod_ElNuc, only : nstate_
+    use Mod_ExpDVR, only : n_, x0_, xN_, xs_, ws_, num_
+    use Mod_Sys, only : mkdirp_if_not
+    integer :: ifile = 23433
+    integer a
+
+    call Timer_begin(timer_, "new_read")
+    
+    call mkdirp_if_not("out"); check_err()
+    
+    call open_w(ifile, "out/ws.csv")
+    write(ifile, '(A)') "val"
+    do a = 1, num_
+       write(ifile, '(F20.10)') ws_(a)
+    end do
+    close(ifile)
+    ifile = ifile + 1
+
+    call open_w(ifile, "out/xs.csv")
+    write(ifile, '(A)') "val"
+    do a = 1, num_
+       write(ifile, '(F20.10)') xs_(a)
+    end do
+    close(ifile)
+    ifile = ifile + 1
+
+    call open_w(ifile, "out/ts.csv")
+    write(ifile, '(A)') "val"
+    do a = 0, nt_
+       write(ifile, '(F20.10)') a*dt_*ntskip_
+    end do
+    ifile = ifile + 1
+    close(ifile)
+    
+
+    call open_w(ifile, "out/size.json")
+    write(ifile, '(A)') "{"
+    write(ifile, '(A, i0)') '   "nstate": ', nstate_
+    write(ifile, '(A)') "}"
+    close(ifile)
+    ifile = ifile + 1
+
+    call open_w(ifile, "out/dvr.json")
+    write(ifile,'(A)') "{"
+    write(ifile,'(A)') '    "n": ', n_
+    write(ifile,'(A)') '    "x0": ', x0_
+    write(ifile,'(A)') '    "xN": ', xN_
+    write(ifile,'(A)') "}"
+    close(ifile)
+
+    
+    call Timer_end(timer_, "new_read")
+  end subroutine new_dump
   subroutine calc
     use Mod_ElNuc
     use Mod_sys
@@ -161,9 +197,12 @@ contains
     complex(kind(0d0))  :: t
     integer :: ifile = 23412
     integer :: i
+
+    
     do it = 0, nt_/ntskip_
 
        write(*,*) "wpdy_dvr ", it, "/", nt_/ntskip_
+       call Timer_begin(timer_, "main_calc")
        t = it * ntskip_ * dt_
        write(out_it, '("out/", I0)') it       
        call mkdirp_if_not(out_it); check_err()
@@ -186,8 +225,9 @@ contains
              call TimeInteKrylov_calc(ElNuc_hc, cdt_, c_(:)); check_err()
           end do
        end if
-       
+       call Timer_end(timer_, "main_calc")
     end do
+        
   end subroutine calc
   subroutine delete
     if(inte_.eq."diag") then

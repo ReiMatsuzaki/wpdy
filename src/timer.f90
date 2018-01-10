@@ -95,12 +95,13 @@ contains
     type(Obj_Timer) :: this
     deallocate(this%rec)
   end subroutine Timer_delete
-  subroutine Timer_begin(this, key)
+  subroutine Timer_begin(this, key)    
     type(Obj_Timer) :: this
     character(*), intent(in) :: key
     integer idx
-    if(this%print_key) then
-       write(*,'(A,":",A," begin")') trim(this%name), key
+    
+    if(this%print_key) then       
+       call timestamp(key // " begin")
     end if
     idx = find(this, key)
     if(idx==0) then
@@ -125,6 +126,7 @@ contains
     end if
   end subroutine Timer_begin
   subroutine Timer_end(this,key)
+    
     type(Obj_Timer) :: this
     character(*), intent(in) :: key
     integer idx
@@ -156,7 +158,7 @@ contains
     end if
 
     if(this%print_key) then
-       write(*,'(A,":",A," end")') trim(this%name), key
+       call timestamp(key // " end")
     end if
     
   end subroutine Timer_end
@@ -193,4 +195,30 @@ contains
     end do
     write(ifile,'(A,":Time_result end")') trim(this%name)
   end subroutine Timer_result
+  subroutine pad0(x, res)
+    integer, intent(in) :: x
+    character(2), intent(out) :: res
+    if(x>10) then
+       write(res, '(i1, i1)') x/10, mod(x, 10)
+    else
+       write(res, '("0", i1)') mod(x, 10)
+    end if
+  end subroutine pad0
+  subroutine timestamp(message)
+    character(*), intent(in) :: message
+    integer :: date_time(8), h, m, s
+    character(10) :: sys_time(3)
+    character(8) :: tlabel
+    character(2) :: hh, mm, ss
+    call date_and_time(sys_time(1), sys_time(2), sys_time(3), date_time)
+    h = date_time(5)
+    m = date_time(6)
+    s = date_time(7)
+    tlabel = "00:00:00"
+    call pad0(s, ss)
+    call pad0(m, mm)
+    call pad0(h, hh)
+    tlabel = hh // ":" // mm // ":" // ss
+    write(*,'(A,A, 2x, A)') sys_time(1), tlabel, message
+  end subroutine timestamp
 end module Mod_timer

@@ -265,7 +265,7 @@ contains
     Hel_(:,1,2) = xs_(:)/10
     Hel_(:,2,1) = xs_(:)/10
     Xij_(:,:,:) = 0
-    Xij_(:,2,1) = exp(-(xs_(:)-1)**2)/100
+    Xij_(:,2,1) = exp(-(xs_(:)-1)**2)
     Xij_(:,1,2) = -Xij_(:,1,2)
 
     ! -- coefficient --
@@ -366,7 +366,6 @@ contains
 
   end subroutine test_tinte_harm
   subroutine test_tinte_2state
-    use Mod_math, only : lapack_zgeev
     use Mod_TimeInteKrylov
     use Mod_TimeInteDiag
     use Mod_ElNuc
