@@ -51,9 +51,9 @@ check: ${BUILD}/${TARGET}
 TARGET=wpdy_dvr
 MODULES=${MODS0} strutil argparser timer dvr elnuc main_dvr
 OBJS=$(addsuffix .o, ${MODULES})
-${BUILD}/${TARGET}: ${OBJS}
-	${FC} ${FF} $^ -o $@ -cpp  -llapack -lblas
-check_main_dvr: ${BUILD}/${TARGET}
+${TARGET}: ${OBJS}
+	${FC} ${FF} $^ -o ${BUILD}/${TARGET} -cpp  -llapack -lblas
+check_main_dvr: ${TARGET}
 	cd ${EXAMPLE}/harm_dvr; python run.py
 
 

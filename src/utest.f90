@@ -6,7 +6,7 @@ module mod_Utest
   implicit none
   integer, save, private :: num_utest
   integer, save, private :: num_failed
-  character(10), private :: sub_title_
+  character(20), private :: sub_title_
   type(Obj_Timer), private :: timer_
 contains 
   ! ==== constructors ==== 

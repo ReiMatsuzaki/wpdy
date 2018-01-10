@@ -4,6 +4,13 @@ module Mod_ArgParser
   use Mod_ErrHandle  
   implicit none
 contains
+  subroutine throw_err_failed_find_name(name)
+    character(*), intent(in) :: name
+    begin_err(1)
+    write(0,*) "failed to find option"
+    write(0,*) "name:", name
+    end_err()
+  end subroutine throw_err_failed_find_name
   subroutine arg_parse_i(name, x)
     use Mod_StrUtil, only : convert_i
     character(*), intent(in) :: name
@@ -19,7 +26,7 @@ contains
           return
        end if
     end do
-    throw_err("failed to find option", 1)
+    call throw_err_failed_find_name(name) ; check_err()
   end subroutine arg_parse_i
   subroutine arg_parse_d(name, x)
     use Mod_StrUtil, only : convert_d
@@ -36,7 +43,7 @@ contains
           return
        end if
     end do
-    throw_err("failed to find option", 1)
+    call throw_err_failed_find_name(name)
   end subroutine arg_parse_d
   subroutine arg_parse_s(name, x)
     character(*), intent(in) :: name
@@ -52,10 +59,7 @@ contains
           return
        end if
     end do
-    begin_err(1)
-    write(0,*) "failed to find option"
-    write(0,*) "name:", name
-    end_err()
+    call throw_err_failed_find_name(name)
   end subroutine arg_parse_s
   subroutine arg_parse_dvec(name, xs)
     use Mod_StrUtil, only : convert_d
@@ -78,7 +82,6 @@ contains
           return
        end if
     end do
-    throw_err("failed to find option", 1)
-    
+    call throw_err_failed_find_name(name)   
   end subroutine arg_parse_dvec
 end module Mod_ArgParser

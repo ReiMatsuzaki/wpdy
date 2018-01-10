@@ -51,16 +51,20 @@ contains
     call test_eig
     call Utest_sub_end
 
-    call Utest_sub_begin("test_tint")
-    call test_time_inte
+    call Utest_sub_begin("test_tinte_simple")
+    call test_tinte_simple
     call Utest_sub_end
 
-    call Utest_sub_begin("test_elnuc")
+    call Utest_sub_begin("test_elfunc")
     call test_elnuc
     call Utest_sub_end
 
-    call Utest_sub_begin("test_tint2")
-    call test_time_inte2
+    call Utest_sub_begin("test_tinte_harm")
+    call test_tinte_harm
+    call Utest_sub_end
+    
+    call Utest_sub_begin("test_tint_2state")
+    call test_tinte_2state
     call Utest_sub_end
     
   end subroutine TestDVR_run
@@ -182,7 +186,7 @@ contains
     call ExpDVR_delete
     
   end subroutine test_eig
-  subroutine test_time_inte
+  subroutine test_tinte_simple
     use Mod_const, only : ii
     use Mod_math, only : lapack_zgeev
     use Mod_TimeInteDiag
@@ -222,7 +226,7 @@ contains
        call TimeInteKrylov_calc(Harm_hc, dt, c1(:))
     end do
     call TimeInteKrylov_delete
-    write(*,*) sum(abs(c1(:)-c0(:)))/size(c(:))
+    write(*,*) sum(abs(c1(:)-c0(:)))/size(c(:))    
 
     c1(:) = c(:) / sqrt(sum(abs(c(:))**2))
     call TimeInteKrylov_new(num, 60)
@@ -236,7 +240,7 @@ contains
     call ExpDVR_delete
     call Harm_delete
     
-  end subroutine test_time_inte
+  end subroutine test_tinte_simple
   subroutine test_elnuc
     use Mod_ElNuc
     integer, parameter :: n = 256
@@ -289,7 +293,76 @@ contains
     call ElNuc_delete
     
   end subroutine test_elnuc
-  subroutine test_time_inte2
+  subroutine test_tinte_harm
+    use Mod_math, only : lapack_zgeev
+    use Mod_TimeInteKrylov
+    use Mod_TimeInteDiag
+    use Mod_ElNuc
+    use Mod_Timer
+    integer, parameter :: n = 128
+    integer, parameter :: num = 2*n+1
+    double precision, parameter :: m = 1.2d0
+    double precision, parameter :: w = 1.1d0
+    double precision, parameter :: a = m*w/2
+    double precision, parameter :: a0 = a
+    double precision, parameter :: x0 = 0.9d0
+    double precision, parameter :: p0 = 0.0d0
+    complex(kind(0d0)) :: dt = 1.0d0
+    integer, parameter :: nstate = 1
+    integer, parameter :: nn=num*nstate
+    complex(kind(0d0)) :: g0(num), cg0(num), c0(nn), c1(nn)
+    complex(kind(0d0)) :: h(nn,nn)
+    integer, parameter :: nt = 1
+    
+    double precision :: xt, pt, gt, cwt, swt, x
+    complex(kind(0d0)) :: psi0, psi1, at
+    integer i
+
+    x = 0.8d0
+
+    ! -- initialize --
+    call ExpDVR_new(n, -5.0d0, 5.0d0)
+    call ElNuc_new(m, nstate)
+
+    ! -- Matrix --
+    Hel_(:,1,1) = m*w*w/2 *xs_(:)**2
+    Xij_(:,:,:) = 0
+
+    ! -- coefficient --
+    g0(:) = exp(-a0*(xs_-x0)**2 + ii*p0*(xs_-x0))
+    call ExpDVR_fit(g0(:), cg0(:))
+    cg0(:) = cg0(:) / sqrt(real(dot_product(cg0, cg0)))
+    c0(:) = cg0(:)
+    c1(:) = c0(:)
+    
+    ! -- time integration by diagonalization--
+    call ElNuc_h(h)
+    call TimeInteDiag_new(h)
+    do i = 1, nt
+       call TimeInteDiag_calc(dt, c0(:))
+    end do
+    call TimeInteDiag_delete
+    call ExpDVR_at_x(c0(:), x, 0, psi0)
+
+    ! -- exact --
+    ! see Tannor's book p.29
+    cwt = cos(w*real(dt))
+    swt = sin(w*real(dt))
+    xt = x0*cwt + p0/(m*w)*swt
+    pt = p0*cwt - m*w*x0*swt
+    at = a * (a0*cwt+ii*a*swt) / (a*cwt + ii*a0*swt)
+    gt = (pt*xt-p0*x0)/2 - w*real(dt)/2
+    psi1 = (2*real(at)/pi)**(0.25d0) * exp(-at*(x-xt)**2 + ii*pt*(x-xt) + ii*gt)
+
+    ! -- check --
+    call expect_near(psi1, psi0, 1.0d-6)
+    
+    ! -- finalize --
+    call ExpDVR_delete
+    call ElNuc_delete
+
+  end subroutine test_tinte_harm
+  subroutine test_tinte_2state
     use Mod_math, only : lapack_zgeev
     use Mod_TimeInteKrylov
     use Mod_TimeInteDiag
@@ -348,11 +421,11 @@ contains
     end do
     call TimeInteDiag_delete
     call Timer_end(timer, "inte_eig")
-    
+    call expect_near(1.0d0, sum(abs(c0(:))**2), 1.0d-5)
     
     ! -- time integration by Krylov --
     call Timer_begin(timer, "inte_krylov")
-    call TimeInteKrylov_new(nn, 16)
+    call TimeInteKrylov_new(nn, 50)
     if(get_err().ne.0) then
           begin_err(1)
           write(0,*) "Error on TimeInteKrylov_new"
@@ -365,7 +438,7 @@ contains
     call Timer_end(timer, "inte_krylov")
     
     ! -- compare --
-    call expect_near(0.0d0, sum(abs(c0(1:10)-c1(1:10)))/size(c0), 1.0d-5)
+    call expect_near(0.0d0, sum(abs(c0(:)-c1(:)))/size(c0), 1.0d-3)
     
     ! -- finalize --
     call ExpDVR_delete
@@ -374,7 +447,7 @@ contains
     call Timer_result(timer)
     call Timer_delete(timer)
 
-  end subroutine test_time_inte2
+  end subroutine test_tinte_2state
 end module Mod_TestDVR
 
 program main

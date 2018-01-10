@@ -7,16 +7,17 @@ module Mod_ElNuc
   integer :: nstate_
   double precision :: m_
   complex(kind(0d0)), allocatable :: Hel_(:,:,:), Xij_(:,:,:), D1_(:,:), D2_(:,:)
-contains
-  
+contains  
   subroutine ElNuc_new(m, nstate)
     ! assume ExpDVR is already prepared
     double precision, intent(in) :: m
     integer, intent(in) :: nstate
     m_ = m
     nstate_ = nstate
-    allocate(Hel_(num_,nstate,nstate), Xij_(num_,nstate,nstate))
+    allocate(Hel_(num_,nstate,nstate), Xij_(num_,nstate,nstate))        
     allocate(D1_(num_,num_), D2_(num_,num_))
+    Hel_ = 0
+    Xij_ = 0
     call ExpDVR_d1mat(D1_)
     call ExpDVR_d2mat(D2_)
     
