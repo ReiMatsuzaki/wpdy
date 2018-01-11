@@ -143,9 +143,9 @@ contains
     
   end subroutine new_read
   subroutine new_dump
-    use Mod_ElNuc, only : nstate_
+    use Mod_ElNuc, only : nstate_, m_
     use Mod_ExpDVR, only : n_, x0_, xN_, xs_, ws_, num_
-    use Mod_Sys, only : mkdirp_if_not
+    use Mod_Sys, only : mkdirp_if_not    
     integer :: ifile = 23433
     integer a
 
@@ -171,25 +171,25 @@ contains
 
     call open_w(ifile, "out/ts.csv")
     write(ifile, '(A)') "val"
-    do a = 0, nt_
+    do a = 0, nt_/ntskip_
        write(ifile, '(F20.10)') a*dt_*ntskip_
     end do
     ifile = ifile + 1
     close(ifile)
     
-
-    call open_w(ifile, "out/size.json")
+    call open_w(ifile, "out/params.json")
     write(ifile, '(A)') "{"
-    write(ifile, '(A, i0)') '   "nstate": ', nstate_
+    write(ifile, '(A, i0, A)')     '   "nstate": ', nstate_, ","
+    write(ifile, '(A, f20.10, A)') '   "mass": '  , m_,      ","
+    write(ifile, '(A, i0, A)')     '   "dvr_n":  ', n_,      ","
+    write(ifile, '(A, f20.10, A)') '   "dvr_x0": ', x0_,     ","
+    write(ifile, '(A, f20.10)')    '   "dvr_xN": ', xN_
     write(ifile, '(A)') "}"
     close(ifile)
     ifile = ifile + 1
 
     call open_w(ifile, "out/dvr.json")
     write(ifile,'(A)') "{"
-    write(ifile,'(A)') '    "n": ', n_
-    write(ifile,'(A)') '    "x0": ', x0_
-    write(ifile,'(A)') '    "xN": ', xN_
     write(ifile,'(A)') "}"
     close(ifile)
     call Timer_end(timer_, "new_read")

@@ -34,12 +34,20 @@ for it in range(len(ts)):
     tmp  = np.array(df["re"] + 1j * df["im"])
     coef = tmp.reshape((len(xs), nstate))
 
-    psi1 = coef[:,0] / np.sqrt(ws)
-    with open(join(dir_it, "psi1.csv"), "w") as f:
-        f.write("re,im,abs\n")
-        for ix in range(len(xs)):
-            y = psi1[ix]
-            f.write("{0},{1},{2}\n".format(y.real, y.imag, abs(y)))
+    if(t%10==0):
+        psi1 = coef[:,0] / np.sqrt(ws)
+        with open(join(dir_it, "psi1.csv"), "w") as f:
+            f.write("re,im,abs\n")
+            for ix in range(len(xs)):
+                y = psi1[ix]
+                f.write("{0},{1},{2}\n".format(y.real, y.imag, abs(y)))
+
+        w = ws[0]
+        rho = np.add.reduce(abs(coef[:,:])**2, axis=1) / w
+        with open(join(dir_it, "rho.csv"), "w") as f:
+            f.write("val\n")
+            for ix in range(len(xs)):
+                f.write("{0}\n".format(rho[ix]))
     
     norm = np.sqrt(np.sum(abs(coef)**2))
     f_norm.write(str(norm)+"\n")
