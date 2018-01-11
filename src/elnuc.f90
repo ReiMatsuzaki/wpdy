@@ -4,6 +4,7 @@
 module Mod_ElNuc
   use Mod_ExpDVR
   implicit none
+  integer :: print_level_
   integer :: nstate_
   double precision :: m_
   complex(kind(0d0)), allocatable :: Hel_(:,:,:), Xij_(:,:,:), D1_(:,:), D2_(:,:)
@@ -12,6 +13,7 @@ contains
     ! assume ExpDVR is already prepared
     double precision, intent(in) :: m
     integer, intent(in) :: nstate
+    print_level_ = 0
     m_ = m
     nstate_ = nstate
     allocate(Hel_(num_,nstate,nstate), Xij_(num_,nstate,nstate))        
@@ -28,6 +30,15 @@ contains
   subroutine ElNuc_h(h)
     complex(kind(0d0)), intent(out) :: h(:,:)
     integer a, b, i, j, idx, jdx
+
+    if(print_level_>0) then
+       i = size(Hel_,1)/2-1
+       write(*,*) "i = ", i
+       write(*,*) "ElNuc_h: Hel_(i,1,:2)", Hel_(i,1,:2)
+       write(*,*) "ElNuc_h: Hel_(i,2,:2)", Hel_(i,2,:2)
+       write(*,*) "ElNuc_h: Xij_(i,1,:2)", Xij_(i,1,:2)
+       write(*,*) "ElNuc_h: Xij_(i,2,:2)", Xij_(i,2,:2)
+    end if
     
     h(:,:) = 0
     do a = 1, num_
@@ -68,6 +79,10 @@ contains
     end do
     
   end subroutine ElNuc_hc
+  subroutine ElNuc_set_print_level(x)
+    integer, intent(in) :: x
+    print_level_ = x
+  end subroutine ElNuc_set_print_level
   function ElNuc_idx(a, i) result(res)
     integer, intent(in) :: a, i
     integer res

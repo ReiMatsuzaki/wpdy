@@ -3,8 +3,6 @@
 module Mod_MainDVR
   use Mod_ErrHandle
   use Mod_Timer
-  use Mod_TimeInteDiag
-  use Mod_TimeInteKrylov
   implicit none
   type(Obj_Timer) :: timer_
   double precision :: dt_
@@ -52,7 +50,9 @@ contains
     use Mod_ElNuc
     use Mod_ArgParser
     use Mod_sys
-    use Mod_TimeInteKrylov, only : print_level_
+    use Mod_TimeInteDiag, only : TimeInteDiag_new, TimeInteDiag_set_print_level
+    use Mod_TimeInteKrylov, only : TimeInteKrylov_new, TimeInteKrylov_set_print_level
+
     integer :: n, kn
     double precision :: x0, xN
     character(100) :: fn_hel, fn_xij, fn_psi0
@@ -87,6 +87,7 @@ contains
     call Timer_begin(timer_, "initialize")
     call ExpDVR_new(n, x0, xN); check_err()
     call ElNuc_new(mass, nstate_); check_err()
+    call ElNuc_set_print_level(print_level)
     allocate(c_(nstate_*num_))
     call Timer_end(timer_, "initialize")
 
@@ -100,11 +101,11 @@ contains
     ! -- time integrator --    
     if(inte_.eq."diag") then
        call TimeInteDiag_new(nstate_*num_); check_err()
+       call TimeInteDiag_set_print_level(print_level)
     else if(inte_.eq."krylov") then
        call arg_parse_i("-krylov_num", kn); check_err()
        call TimeInteKrylov_new(nstate_*num_, kn); check_err()
-       write(*,*) "print_level", print_level
-       print_level_ = print_level
+       call TimeInteKrylov_set_print_level(print_level)
     else
        throw_err("invalid inte", 1)
     end if
@@ -205,6 +206,8 @@ contains
   subroutine calc
     use Mod_ElNuc
     use Mod_sys
+    use Mod_TimeInteDiag, only : TimeInteDiag_precalc, TimeInteDiag_calc
+    use Mod_TimeInteKrylov, only : TimeInteKrylov_calc
     integer :: it, itt
     character(100) :: out_it, fn_coef
     complex(kind(0d0))  :: t
@@ -232,8 +235,6 @@ contains
        write(out_it, '("out/", I0)') it       
        call mkdirp_if_not(out_it); check_err()
 
-       write(*,*) "write coef"
-       write(*,*) c_(:5)
        fn_coef = trim(out_it) // "/coef.csv"
        call open_w(ifile, fn_coef)
        write(ifile, '(A)') "re,im"
@@ -277,6 +278,8 @@ contains
     call Timer_end(timer_, "check_hc")
   end subroutine check_hc
   subroutine delete
+    use Mod_TimeInteDiag, only : TimeInteDiag_delete
+    use Mod_TimeInteKrylov, only : TimeInteKrylov_delete
     if(inte_.eq."diag") then
        call TimeInteDiag_delete
     else if(inte_.eq."krylov") then

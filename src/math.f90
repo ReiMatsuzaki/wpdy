@@ -411,9 +411,10 @@ module Mod_TimeInteDiag
   use Mod_ErrHandle
   implicit none
   private
-  integer :: n_
+  integer :: n_, print_level_
   complex(kind(0d0)), allocatable :: e_(:), u_(:,:), uH_(:,:)
   public :: TimeInteDiag_new, TimeInteDiag_delete, TimeInteDiag_calc, TimeInteDiag_precalc
+  public :: TimeInteDiag_set_print_level
 contains
   subroutine TimeInteDiag_new(n)
     integer, intent(in) :: n
@@ -423,10 +424,17 @@ contains
   subroutine TImeInteDiag_delete
     deallocate(e_, u_, uH_)
   end subroutine TImeInteDiag_delete
+  subroutine TimeInteDiag_set_print_level(x)
+    integer, intent(in) :: x
+    print_level_ = x
+  end subroutine TimeInteDiag_set_print_level
   subroutine TimeInteDiag_precalc(h)
     use Mod_math, only : lapack_zgeev
-    complex(kind(0d0)), intent(in) :: h(:,:)
+    complex(kind(0d0)), intent(in) :: h(:,:)        
     call lapack_zgeev(h, n_, e_, u_, uH_)
+    if(print_level_>0) then
+       write(*,*) "TimeInteDiag_precalc e(:3):", e_(:2)
+    end if
     uH_ = conjg(transpose(uH_))
   end subroutine TimeInteDiag_precalc
   subroutine TimeInteDiag_calc(dt, c)
@@ -449,7 +457,7 @@ module Mod_TimeInteKrylov
   integer :: print_level_
   complex(kind(0d0)), allocatable :: u_(:,:), Hu_(:,:), kh_(:,:)
   complex(kind(0d0)), allocatable :: ck_(:), kuR_(:,:),kuL_(:,:), kw_(:)
-  public :: TimeInteKrylov_new, TimeInteKrylov_delete, TimeInteKrylov_calc, print_level_
+  public :: TimeInteKrylov_new, TimeInteKrylov_delete, TimeInteKrylov_calc, TimeInteKrylov_set_print_level
 contains
   subroutine TimeInteKrylov_new(n, kn)
     integer, intent(in) :: n, kn
@@ -467,6 +475,10 @@ contains
   subroutine TimeInteKrylov_delete
     deallocate(u_, Hu_, kh_, ck_, kuR_, kuL_, kw_)
   end subroutine TimeInteKrylov_delete
+  subroutine TimeInteKrylov_set_print_level(x)
+    integer, intent(in) :: x
+    print_level_ = x
+  end subroutine TimeInteKrylov_set_print_level
   subroutine TimeIntekrylov_calc(hc, dt, c)
     use Mod_Const, only : ii
     use Mod_Math, only  : lapack_zgeev, norm
@@ -483,7 +495,6 @@ contains
     if(size(c).ne.n_) then
        throw_err("c: invalid size", 1)
     end if
-    write(*,*) "print_leve", print_level_
     ! -- 1st proces --
     u_(:,1) = c(:)
     u_(:,1) = u_(:,1) / norm(u_(:,1))
