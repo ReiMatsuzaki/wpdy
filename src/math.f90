@@ -382,7 +382,7 @@ contains
        write(0,*) "size(w):", size(w)
        end_err()
     end if    
-    write(*,*) 2.1
+
     HH = H
     info = 0
 
@@ -446,14 +446,16 @@ module Mod_TimeInteKrylov
   implicit none
   private
   integer :: n_, kn_
+  integer :: print_level_
   complex(kind(0d0)), allocatable :: u_(:,:), Hu_(:,:), kh_(:,:)
   complex(kind(0d0)), allocatable :: ck_(:), kuR_(:,:),kuL_(:,:), kw_(:)
-  public :: TimeInteKrylov_new, TimeInteKrylov_delete, TimeInteKrylov_calc
+  public :: TimeInteKrylov_new, TimeInteKrylov_delete, TimeInteKrylov_calc, print_level_
 contains
   subroutine TimeInteKrylov_new(n, kn)
     integer, intent(in) :: n, kn
     n_ = n
     kn_ = kn
+    print_level_ = 0
     allocate(u_(n,kn));   u_=0
     allocate(Hu_(n,kn));  Hu_=0
     allocate(kh_(kn,kn)); kh_=0
@@ -476,18 +478,22 @@ contains
     end interface
     complex(kind(0d0)), intent(in) :: dt
     complex(kind(0d0)), intent(inout) :: c(:)
-
     integer k
-    
+
     if(size(c).ne.n_) then
        throw_err("c: invalid size", 1)
     end if
-
+    write(*,*) "print_leve", print_level_
     ! -- 1st proces --
     u_(:,1) = c(:)
     u_(:,1) = u_(:,1) / norm(u_(:,1))
     call hc(u_(:,1), Hu_(:,1))
     kh_(1,1) = dot_product(u_(:,1), Hu_(:,1))
+
+    if(print_level_>0) then
+       write(*,*) "u(:2,1)", u_(:2,1)
+       write(*,*) "kh(1,1)", kh_(1,1)
+    end if
     
     ! -- 2nd process --
     u_(:,2) = Hu_(:,1) - kh_(1,1)*u_(:,1)
@@ -496,6 +502,12 @@ contains
     kh_(2,2) = dot_product(u_(:,2), Hu_(:,2))
     kh_(1,2) = dot_product(u_(:,1), Hu_(:,2))
     kh_(2,1) = conjg(kh_(1,2))
+
+    if(print_level_>0) then
+       write(*,*) "u(:2,2)", u_(:2,2)
+       write(*,*) "kh(1,2)", kh_(1,2)
+       write(*,*) "kh(2,2)", kh_(2,2)
+    end if
 
     ! -- proceeding process --
     do k = 2, kn_-1
@@ -506,13 +518,25 @@ contains
        kh_(k,  k+1) = dot_product(u_(:,k),   Hu_(:,k+1))
        kh_(k+1,k)   = conjg(kh_(k,k+1))
 
+       if(print_level_>0) then
+          if(k<4) then
+             write(*,*) "k = ", k
+             write(*,*) "u(:2,k)", u_(:2,k)
+             write(*,*) "kh(:2,k)", kh_(:2,k)
+          end if
+       end if
+
     end do
 
     ! -- integration --
     call lapack_zgeev(kh_(:,:), kn_, kw_(:), kuL_(:,:), kuR_(:,:))!; check_err()
+    if(print_level_>0) write(*,*) "kw(:2)", kw_(:2)
     ck_(:) = exp(-ii*kw_*dt) * conjg(kuL_(1,:))
+    if(print_level_>0) write(*,*) "1, ck_(:2)", ck_(:2)
     ck_(:) = matmul(kuR_(:,:), ck_(:))
+    if(print_level_>0) write(*,*) "2, ck_(:2)", ck_(:2)
     c(:)  = matmul(u_(:,:), ck_(:))
+    if(print_level_>0) write(*,*) "c(:2)", c(:2)
     
   end subroutine TimeIntekrylov_calc
 end module Mod_TimeInteKrylov

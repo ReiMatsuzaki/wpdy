@@ -244,7 +244,7 @@ contains
   end subroutine test_tinte_simple
   subroutine test_elnuc
     use Mod_ElNuc
-    integer, parameter :: n = 256
+    integer, parameter :: n = 512
     integer, parameter :: num = 2*n+1
     double precision, parameter :: m = 1.2d0
     double precision, parameter :: w = 1.0d0

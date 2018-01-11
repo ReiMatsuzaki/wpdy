@@ -52,10 +52,12 @@ contains
     use Mod_ElNuc
     use Mod_ArgParser
     use Mod_sys
+    use Mod_TimeInteKrylov, only : print_level_
     integer :: n, kn
     double precision :: x0, xN
     character(100) :: fn_hel, fn_xij, fn_psi0
-    double precision :: mass    
+    double precision :: mass
+    integer print_level
 
     call Timer_begin(timer_, "parse_arg")
     call arg_parse_i("-dvr_n", n); check_err()
@@ -75,6 +77,10 @@ contains
     call arg_parse_i("-ntskip", ntskip_); check_err()
 
     call arg_parse_s("-inte", inte_); check_err()
+    if(arg_parse_exist("-print_level")) then
+       call arg_parse_i("-print_level", print_level)
+    end if
+    
     call Timer_end(timer_, "parse_arg")
 
     ! -- initialization --
@@ -97,6 +103,8 @@ contains
     else if(inte_.eq."krylov") then
        call arg_parse_i("-krylov_num", kn); check_err()
        call TimeInteKrylov_new(nstate_*num_, kn); check_err()
+       write(*,*) "print_level", print_level
+       print_level_ = print_level
     else
        throw_err("invalid inte", 1)
     end if
@@ -224,6 +232,8 @@ contains
        write(out_it, '("out/", I0)') it       
        call mkdirp_if_not(out_it); check_err()
 
+       write(*,*) "write coef"
+       write(*,*) c_(:5)
        fn_coef = trim(out_it) // "/coef.csv"
        call open_w(ifile, fn_coef)
        write(ifile, '(A)') "re,im"
@@ -233,6 +243,7 @@ contains
        close(ifile)
        ifile = ifile + 1
 
+       write(*,*) "integrate t"
        if(inte_.eq."diag") then
           do itt = 1, ntskip_
              call TimeInteDiag_calc(cdt_, c_(:)); check_err()
