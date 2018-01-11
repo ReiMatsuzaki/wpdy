@@ -212,7 +212,8 @@ contains
 
     ! -- integration by diagonalize --
     c0(:) = c(:) / sqrt(sum(abs(c(:))**2))
-    call TimeInteDiag_new(h_(:,:))
+    call TimeInteDiag_new(num_)
+    call TimeInteDiag_precalc(h_(:,:))
     do i = 1, nt
        call TimeInteDiag_calc(dt, c0(:))
     end do
@@ -338,7 +339,8 @@ contains
     
     ! -- time integration by diagonalization--    
     call ElNuc_h(h)
-    call TimeInteDiag_new(h)
+    call TimeInteDiag_new(num_)
+    call TimeInteDiag_precalc(h)
     do i = 1, nt
        call TimeInteDiag_calc(dt, c0(:))
     end do
@@ -415,7 +417,8 @@ contains
     call ElNuc_h(h)
     call Timer_end(timer, "elnuc_h")
     call Timer_begin(timer, "diag")
-    call TimeInteDiag_new(h)
+    call TimeInteDiag_new(num_*nstate_)
+    call TimeInteDiag_precalc(h)
     call Timer_end(timer, "diag")
     call Timer_begin(timer, "inte_eig")
     do i = 1, nt

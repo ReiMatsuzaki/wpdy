@@ -219,6 +219,6 @@ contains
     call pad0(m, mm)
     call pad0(h, hh)
     tlabel = hh // ":" // mm // ":" // ss
-    write(*,'(A,A, 2x, A)') sys_time(1), tlabel, message
+    write(*,'(A, 2x, A, 2x, A)') trim(sys_time(1)), trim(tlabel), trim(message)
   end subroutine timestamp
 end module Mod_timer

@@ -208,8 +208,8 @@ contains
     call Timer_begin(timer_, "precalc")    
     if(inte_.eq."diag") then
        nn = num_*nstate_
-       allocate(h(nn,nn))       
-       call ElNuc_h(h); check_err()       
+       allocate(h(nn,nn))
+       call ElNuc_h(h); check_err()
        call TimeInteDiag_precalc(h); check_err()
        deallocate(h)
     end if

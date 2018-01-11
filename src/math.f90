@@ -382,11 +382,13 @@ contains
        write(0,*) "size(w):", size(w)
        end_err()
     end if    
-    
+    write(*,*) 2.1
     HH = H
     info = 0
+
     call ZGEEV('V', 'V', n, HH, n, w,&
          UL, n, UR, n, work, n*n+n, rwork, info)
+
     if(info .ne. 0) then
        throw_err("Error on ZGEEV", 1)       
     end if
@@ -396,6 +398,7 @@ contains
        UL(:,i) = UL(:,i)/conjg(sqrt(norm2))
        UR(:,i) = UR(:,i)/sqrt(norm2)
     end do
+
   end subroutine lapack_zgeev
   function norm(c) result(res)
     complex(kind(0d0)), intent(in) :: c(:)
