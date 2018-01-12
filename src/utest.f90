@@ -42,12 +42,20 @@ contains
   end subroutine Utest_sub_begin
   subroutine Utest_sub_end()
     double precision t
+    character(2) uni
     call Timer_end(timer_, sub_title_)
     t = Timer_time(timer_, sub_title_)
-    if(get_err().eq.0) then
-       write(*,'("[      OK ] ", A, "  (", f10.5, " ms)")') sub_title_, t*1000
+    if(t<1) then
+       uni = "ms"
+       t = t*1000
     else
-       write(*,'("[ FAILED  ] ", A, "  (", f10.5, " ms)")') sub_title_, t*1000
+       uni = " s"
+    end if
+    
+    if(get_err().eq.0) then
+       write(*,'("[      OK ] ", A, "  (", f10.5, 1x, A, ")")') sub_title_, t, uni
+    else
+       write(*,'("[ FAILED  ] ", A, "  (", f10.5, 1x, A, ")")') sub_title_, t, uni
     end if
   end subroutine Utest_sub_end
   subroutine utest_check_begin

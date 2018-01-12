@@ -75,6 +75,10 @@ contains
     cdt_ = dt_
     call arg_parse_i("-nt", nt_); check_err()
     call arg_parse_i("-ntskip", ntskip_); check_err()
+    write(*,*) "dt:", cdt_
+    write(*,*) "nt:", nt_
+    write(*,*) "ntskip:", ntskip_
+    write(*,*) "mass:", mass
 
     call arg_parse_s("-inte", inte_); check_err()
     if(arg_parse_exist("-print_level")) then

@@ -35,6 +35,13 @@ module Mod_TestDVR
   implicit none
 contains
   subroutine TestDVR_run
+    !$ use omp_lib
+    !$omp parallel
+    if(omp_get_thread_num().eq.0) then
+       write(*,*) "thread number:", omp_get_num_threads()
+    end if
+    !$omp end parallel
+    
     call Utest_sub_begin("test_at")
     call test_at
     call Utest_sub_end()
@@ -57,6 +64,10 @@ contains
 
     call Utest_sub_begin("test_elnuc")
     call test_elnuc
+    call Utest_sub_end
+
+    call Utest_sub_begin("test_hc_time")
+    call test_hc_time
     call Utest_sub_end
 
     call Utest_sub_begin("test_tinte_harm")
@@ -255,7 +266,7 @@ contains
     complex(kind(0d0)) :: g0(num), cg0(num), c0(num*nstate), c1(num*nstate)
     complex(kind(0d0)) :: h(num*nstate,num*nstate), hc0(num*nstate), hc1(num*nstate)
     integer i
-
+    
     ! -- initialize --
     call ExpDVR_new(n, -5.0d0, 5.0d0)
     call ElNuc_new(m, nstate)
@@ -284,6 +295,7 @@ contains
     hc0(:) = matmul(h(:,:), c0(:))
 
     ! -- Hc by direct --
+    write(*,*) 0
     call ElNuc_hc(c1(:), hc1(:))
 
     ! -- compare
@@ -294,6 +306,76 @@ contains
     call ElNuc_delete
     
   end subroutine test_elnuc
+  subroutine test_hc_time
+    use Mod_ElNuc
+    integer, parameter :: n = 512
+    integer, parameter :: num = 2*n+1
+    integer, parameter :: nstate = 150
+    integer, parameter :: nn = num*nstate
+    double precision, parameter :: m = 1.2d0
+    double precision, parameter :: w = 1.0d0
+    double precision, parameter :: a = m*w/2
+    double precision, parameter :: x0 = 0.0
+    double precision, parameter :: p0 = 0.0    
+    complex(kind(0d0)) :: g0(num), cg0(num), c0(nn), hc0(nn)
+    integer i, j
+    
+    ! == result at athena ==
+    ! 2018/1/11 18:00
+    ! nstate  | time(s) |
+    !--------------------|
+    !  2      |   0.458  |
+    !  10     |   0.927  |
+    !  20     |   2.038  |
+    !  30     |   4.012  |
+    !  40     |  18.012  |
+    !  50     |  37.851  | 
+    !  60     |  59.442  |
+
+    ! == result at athena ==
+    ! 2018/1/11 23:00
+    ! nstate  | time(s) |
+    !--------------------|
+    !  2      |          |
+    !  10     |          |
+    !  20     |   0.489  |
+    !  30     |          |
+    !  40     |   1.321  |
+    !  50     |          | 
+    !  60     |   2.579  |
+    !  80     |   3.445  |
+    ! 100     |   4.646  |
+    ! 150     |   6.993  |
+
+    ! -- initialize --
+    call ExpDVR_new(n, -5.0d0, 5.0d0)
+    call ElNuc_new(m, nstate)
+
+    ! -- Matrix --
+    do i = 1, nstate       
+       do j = 1, nstate
+          Hel_(:,i,j) = m*w*w/2 *xs_(:)**2 + (i+j)/100
+          Xij_(:,i,j) = exp(-(xs_(:)-1)**2) * (i-j)/100
+       end do
+    end do
+
+    ! -- coefficient --
+    g0(:) = exp(-a*(xs_-x0)**2 + ii*p0*(xs_-x0))
+    call ExpDVR_fit(g0(:), cg0(:))
+    cg0(:) = cg0(:) / sqrt(real(dot_product(cg0, cg0)))
+    c0(:) = 0
+    do i = 1, num
+       c0(2*i-1) = cg0(i)
+    end do
+    
+    ! -- Hc by direct --
+    call ElNuc_hc(c0(:), hc0(:))
+    
+    ! -- finalize --
+    call ExpDVR_delete
+    call ElNuc_delete
+        
+  end subroutine test_hc_time
   subroutine test_tinte_harm
     use Mod_math, only : lapack_zgeev
     use Mod_TimeInteKrylov

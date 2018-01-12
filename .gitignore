@@ -21,3 +21,4 @@ f90/utest
 *.csv
 **/out
 **/fig
+a.out

@@ -1,8 +1,10 @@
 WPDY_PATH=${HOME}/src/wpdy
-## -- gfortran options --
-FC=gfortran
-FF=-Wall -pedantic -fbounds-check -O -Wuninitialized -fbacktrace -g -cpp -ffree-line-length-512
+
+## -- gfort options --
+#FC=gfortran
 
 ## -- ifort options --
-#FC=ifort
-#FF=-O0 -g -traceback -check all -check bounds -check uninit -debug all -fpp
+FC=ifort
+MKL=/opt/intel/mkl
+
+
