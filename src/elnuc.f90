@@ -8,8 +8,8 @@ module Mod_ElNuc
   integer :: nstate_
   double precision :: m_
   complex(kind(0d0)), allocatable :: Hel_(:,:,:), Xij_(:,:,:), D1_(:,:), D2_(:,:)
-  !integer :: hc_method_
-  !double precision :: hc_tol_
+  integer :: hc_method_
+  double precision :: hc_tol_
 contains  
   subroutine ElNuc_new(m, nstate)
     ! assume ExpDVR is already prepared
@@ -25,8 +25,8 @@ contains
     call ExpDVR_d1mat(D1_)
     call ExpDVR_d2mat(D2_)
 
-    !    hc_method_ = 0
-    ! hc_tol_ = 1.0d-10
+    hc_method_ = 0
+    hc_tol_ = 1.0d-10
     
   end subroutine ElNuc_new
   subroutine ElNuc_delete
@@ -67,7 +67,61 @@ contains
   subroutine ElNuc_hc(c, hc)
     complex(kind(0d0)), intent(in) :: c(:)
     complex(kind(0d0)), intent(out) :: hc(:)
-    integer a, b, i0, i1, j0, j1
+    if(hc_method_.eq.0) then
+       call ElNuc_hc_0(c, hc)
+    else if(hc_method_.eq.1) then
+       call ElNuc_hc_1(c, hc)
+    else if(hc_method_.eq.2) then
+       call ElNuc_hc_2(c, hc)
+    end if
+  end subroutine ElNuc_hc
+  subroutine ElNuc_hc_0(c, hc)
+    complex(kind(0d0)), intent(in) :: c(:)
+    complex(kind(0d0)), intent(out) :: hc(:)
+    integer idx, a, b, i0, i1, j0, j1
+    double precision, parameter :: tol = 1.0d-10
+    integer :: alist(num_), numa
+
+    numa = 0
+    do a = 1, num_
+       i0 = ElNuc_idx(a,1)
+       i1 = i0 + nstate_-1
+       if(sum(abs(c(i0:i1))) > nstate_*tol) then
+          numa = numa + 1
+          alist(numa) = a
+       end if
+    end do
+
+    hc(:) = 0
+    !$omp parallel default(none) shared(alist,nstate_,num_,Hel_,c,D2_,D1_,Xij_,hc,m_,numa) private(idx,a,i0,i1,b,j0,j1)
+    !$omp do 
+    do idx = 1, numa
+       a = alist(idx)
+       i0 = ElNuc_idx(a,1)
+       i1 = i0 + nstate_-1
+       hc(i0:i1) = hc(i0:i1) + matmul(Hel_(a,:,:), c(i0:i1))
+    end do
+    !$omp end do
+    !$omp do 
+    do b = 1, num_
+       j0 = ElNuc_idx(b,1)
+       j1 = j0 + nstate_-1    
+       do idx = 1, numa
+          a = alist(idx)
+          i0 = ElNuc_idx(a,1)
+          i1 = i0 + nstate_-1      
+          hc(j0:j1) = hc(j0:j1) &
+               - 1/(2*m_)* (2*matmul(Xij_(b,:,:), c(i0:i1)) * D1_(b,a) + D2_(b,a)*c(i0:i1))
+       end do
+    end do
+    !$omp end do
+    !$omp end parallel
+    
+  end subroutine ElNuc_hc_0
+  subroutine ElNuc_hc_1(c, hc)
+    complex(kind(0d0)), intent(in) :: c(:)
+    complex(kind(0d0)), intent(out) :: hc(:)
+    integer idx, a, b, i0, i1, j0, j1
     double precision, parameter :: tol = 1.0d-10
     logical :: nonzero(num_)
 
@@ -80,9 +134,8 @@ contains
           nonzero(a) = .false.
        end if
     end do
-
-    hc(:) = 0
-
+    
+    ! first parallel version
     !$omp parallel do default(none) shared(nstate_,num_,Hel_,c,D2_,D1_,Xij_,nonzero,hc,m_) private(a,i0,i1,b,j0,j1)
     do a = 1, num_
        i0 = ElNuc_idx(a,1)
@@ -101,25 +154,29 @@ contains
        end do
     end do
     !$omp end parallel do
-
-    !
-    ! -- slow version --
-    !hc(:) = 0
-    !do a = 1, num_
-    !   i0 = ElNuc_idx(a,1)
-    !   !i1 = ElNuc_idx(a+1,1)-1
-    !   i1 = i0 + nstate_-1       
-    !   hc(i0:i1) = hc(i0:i1) + matmul(Hel_(a,:,:), c(i0:i1))
-    !   do b = 1, num_
-    !      j0 = ElNuc_idx(b,1)
-    !      j1 = ElNuc_idx(b+1,1)-1
-    !      hc(i0:i1) = hc(i0:i1) &
-    !           - 1/m_* (matmul(Xij_(a,:,:), c(j0:j1)) * D1_(a,b) &
-    !           +1.0d0/2*D2_(a,b)*c(j0:j1))
-    !   end do
-    !end do
     
-  end subroutine ElNuc_hc
+  end subroutine ElNuc_hc_1
+  subroutine ElNuc_hc_2(c, hc)
+    complex(kind(0d0)), intent(in) :: c(:)
+    complex(kind(0d0)), intent(out) :: hc(:)
+    integer idx, a, b, i0, i1, j0, j1
+    double precision, parameter :: tol = 1.0d-10
+
+    hc(:) = 0
+    do a = 1, num_
+       i0 = ElNuc_idx(a,1)
+       i1 = ElNuc_idx(a+1,1)-1
+       hc(i0:i1) = hc(i0:i1) + matmul(Hel_(a,:,:), c(i0:i1))
+       do b = 1, num_
+          j0 = ElNuc_idx(b,1)
+          j1 = ElNuc_idx(b+1,1)-1
+          hc(i0:i1) = hc(i0:i1) &
+               - 1/m_* (matmul(Xij_(a,:,:), c(j0:j1)) * D1_(a,b) &
+               +1.0d0/2*D2_(a,b)*c(j0:j1))
+       end do
+    end do
+    
+  end subroutine ElNuc_hc_2
   subroutine ElNuc_set_print_level(x)
     integer, intent(in) :: x
     print_level_ = x

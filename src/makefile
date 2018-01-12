@@ -1,11 +1,13 @@
 include ../local.mk
 
 MODS0=const err_handle math istream fjson timer sys
-BUILD=${WPDY_PATH}/build
+OPT=0
+BUILD=${WPDY_PATH}/build/${OPT}
 EXAMPLE=${WPDY_PATH}/example
 
 ifeq (${FC},ifort)
-	FF=-O0 -qopenmp -fpp -free -xHost -I${MKL}/include
+#	FF=-O0 -qopenmp -fpp -free -xHost -I${MKL}/include
+	FF=-O3 -qopenmp -fpp -free -xHost -I${MKL}/include
 	MKLLIB=${MKL}/lib/intel64
 	LIBS=${MKLLIB}/libmkl_lapack95_lp64.a -Wl,--start-group ${MKLLIB}/libmkl_intel_lp64.a ${MKLLIB}/libmkl_core.a ${MKLLIB}/libmkl_intel_thread.a  -Wl,--end-group -lpthread -lm -ldl
 endif

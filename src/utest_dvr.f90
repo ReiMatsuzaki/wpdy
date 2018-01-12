@@ -62,12 +62,16 @@ contains
     call test_tinte_simple
     call Utest_sub_end
 
-    call Utest_sub_begin("test_elnuc")
-    call test_elnuc
+    call Utest_sub_begin("test_hc_time0")
+    call test_hc_time(0)
     call Utest_sub_end
 
-    call Utest_sub_begin("test_hc_time")
-    call test_hc_time
+    call Utest_sub_begin("test_hc_time1")
+    call test_hc_time(1)
+    call Utest_sub_end
+
+    call Utest_sub_begin("test_elnuc")
+    call test_elnuc
     call Utest_sub_end
 
     call Utest_sub_begin("test_tinte_harm")
@@ -295,7 +299,6 @@ contains
     hc0(:) = matmul(h(:,:), c0(:))
 
     ! -- Hc by direct --
-    write(*,*) 0
     call ElNuc_hc(c1(:), hc1(:))
 
     ! -- compare
@@ -306,8 +309,9 @@ contains
     call ElNuc_delete
     
   end subroutine test_elnuc
-  subroutine test_hc_time
+  subroutine test_hc_time(hc_method)
     use Mod_ElNuc
+    integer :: hc_method
     integer, parameter :: n = 512
     integer, parameter :: num = 2*n+1
     integer, parameter :: nstate = 150
@@ -347,9 +351,18 @@ contains
     ! 100     |   4.646  |
     ! 150     |   6.993  |
 
+    ! == results at athena49.cluster ==
+    ! -O0
+    ! 150     | 1core  | 5.111  |
+    !         | 12core | 1.6144 |
+    !
+    ! -O3 
+    ! 150     | 1core  | 0.997  |
+    !         | 12core | 0.490  |    
+
     ! -- initialize --
     call ExpDVR_new(n, -5.0d0, 5.0d0)
-    call ElNuc_new(m, nstate)
+    call ElNuc_new(m, nstate)    
 
     ! -- Matrix --
     do i = 1, nstate       
@@ -369,6 +382,7 @@ contains
     end do
     
     ! -- Hc by direct --
+    hc_method_ = hc_method
     call ElNuc_hc(c0(:), hc0(:))
     
     ! -- finalize --
@@ -416,8 +430,6 @@ contains
     call ExpDVR_fit(g0(:), cg0(:))
     cg0(:) = cg0(:) / sqrt(real(dot_product(cg0, cg0)))
     c0(:) = cg0(:)
-    write(*,*) "coef(t=0)"
-    write(*,*) c0(49)
     
     ! -- time integration by diagonalization--    
     call ElNuc_h(h)
@@ -428,8 +440,6 @@ contains
     end do
     call TimeInteDiag_delete
     call ExpDVR_at_x(c0(:), x, 0, psi0)
-    write(*,*) "coef(t=1)"
-    write(*,*) c0(49)
 
     ! -- exact --
     ! see Tannor's book p.29
