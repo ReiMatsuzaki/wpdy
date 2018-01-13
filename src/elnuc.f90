@@ -57,8 +57,9 @@ contains
                 end if
                 if(i==j) then
                    h(idx,jdx) =  h(idx,jdx) -1/(2*m_)*D2_(a,b)
+                else
+                   h(idx,jdx) =  h(idx,jdx) - 1/(2*m_)*(Xij_(a,i,j)*D1_(a,b) - Xij_(b,i,j)*conjg(D1_(b,a)))
                 end if
-                h(idx,jdx) =  h(idx,jdx) - (1/m_)*Xij_(a,i,j)*D1_(a,b)
              end do
           end do
        end do
@@ -73,20 +74,21 @@ contains
        call ElNuc_hc_1(c, hc)
     else if(hc_method_.eq.2) then
        call ElNuc_hc_2(c, hc)
+    else if(hc_method_.eq.3) then
+       call ElNuc_hc_3(c, hc)       
     end if
   end subroutine ElNuc_hc
   subroutine ElNuc_hc_0(c, hc)
     complex(kind(0d0)), intent(in) :: c(:)
     complex(kind(0d0)), intent(out) :: hc(:)
     integer idx, a, b, i0, i1, j0, j1
-    double precision, parameter :: tol = 1.0d-10
     integer :: alist(num_), numa
 
     numa = 0
     do a = 1, num_
        i0 = ElNuc_idx(a,1)
        i1 = i0 + nstate_-1
-       if(sum(abs(c(i0:i1))) > nstate_*tol) then
+       if(sum(abs(c(i0:i1))) > nstate_*hc_tol_) then
           numa = numa + 1
           alist(numa) = a
        end if
@@ -102,33 +104,95 @@ contains
        hc(i0:i1) = hc(i0:i1) + matmul(Hel_(a,:,:), c(i0:i1))
     end do
     !$omp end do
-    !$omp do 
-    do b = 1, num_
-       j0 = ElNuc_idx(b,1)
-       j1 = j0 + nstate_-1    
+    !$omp do
+    do a = 1, num_
+       i0 = ElNuc_idx(a,1)
+       i1 = i0 + nstate_-1    
        do idx = 1, numa
-          a = alist(idx)
-          i0 = ElNuc_idx(a,1)
-          i1 = i0 + nstate_-1      
-          hc(j0:j1) = hc(j0:j1) &
-               - 1/(2*m_)* (2*matmul(Xij_(b,:,:), c(i0:i1)) * D1_(b,a) + D2_(b,a)*c(i0:i1))
+          b = alist(idx)
+          j0 = ElNuc_idx(b,1)
+          j1 = j0 + nstate_-1      
+          hc(i0:i1) = hc(i0:i1) - 1/(2*m_) * ( &
+               + matmul(Xij_(a,:,:), c(j0:j1)) * D1_(a,b) &
+               - matmul(Xij_(b,:,:), c(j0:j1)) * conjg(D1_(b,a)) &
+               + D2_(a,b)*c(j0:j1))
+       end do
+    end do    
+    !$omp end do
+    !$omp end parallel
+    
+  end subroutine ElNuc_hc_0
+  subroutine ElNuc_hc_3(c, hc)
+    complex(kind(0d0)), intent(in) :: c(:)
+    complex(kind(0d0)), intent(out) :: hc(:)
+    integer idx, a, b, i0, i1, j0, j1
+    integer :: alist(num_), numa
+    double precision :: mm 
+
+    mm = 1/(2*m_)
+    
+    numa = 0
+    do a = 1, num_
+       i0 = ElNuc_idx(a,1)
+       i1 = i0 + nstate_-1
+       if(sum(abs(c(i0:i1))) > nstate_*hc_tol_) then
+          numa = numa + 1
+          alist(numa) = a
+       end if
+    end do
+
+    hc(:) = 0
+    !$omp parallel default(none) shared(D2_,D1_,Xij_,alist,nstate_,num_,Hel_,c,hc,mm,numa) private(idx,a,i0,i1,b,j0,j1)
+    !$omp do 
+    do idx = 1, numa
+       a = alist(idx)
+       i0 = ElNuc_idx(a,1)
+       i1 = i0 + nstate_-1
+       hc(i0:i1) = hc(i0:i1) + matmul(Hel_(a,:,:), c(i0:i1))
+    end do
+    !$omp end do
+    !$omp do    
+    do a = 1, num_
+       i0 = ElNuc_idx(a,1)
+       i1 = i0 + nstate_-1    
+       do idx = 1, numa
+          b = alist(idx)
+          j0 = ElNuc_idx(b,1)
+          j1 = j0 + nstate_-1      
+          hc(i0:i1) = hc(i0:i1) - mm * ( &
+               + matmul(Xij_(a,:,:), c(j0:j1)) * D1_(a,b) &
+               + D2_(a,b)*c(j0:j1))
        end do
     end do
     !$omp end do
     !$omp end parallel
     
-  end subroutine ElNuc_hc_0
+    do idx = 1, numa
+       b = alist(idx)
+       j0 = ElNuc_idx(b,1)
+       j1 = j0 + nstate_-1
+       !$omp parallel default(none) shared(b,j0,j1,alist,nstate_,num_,c,D2_,D1_,Xij_,hc,mm,numa) private(a,i0,i1)
+       !$omp do
+       do a = 1, num_
+          i0 = ElNuc_idx(a,1)
+          i1 = i0 + nstate_-1       
+          hc(i0:i1) = hc(i0:i1) + mm * matmul(Xij_(b,:,:), c(j0:j1)) * conjg(D1_(b,a))
+       end do
+       !$omp end do
+       !$omp end parallel
+    end do
+    
+  end subroutine ElNuc_hc_3
   subroutine ElNuc_hc_1(c, hc)
     complex(kind(0d0)), intent(in) :: c(:)
     complex(kind(0d0)), intent(out) :: hc(:)
     integer idx, a, b, i0, i1, j0, j1
-    double precision, parameter :: tol = 1.0d-10
     logical :: nonzero(num_)
-
+    throw_err("do not use this function", 1)
     do a = 1, num_
        i0 = ElNuc_idx(a,1)
        i1 = i0 + nstate_-1
-       if(sum(abs(c(i0:i1))) > nstate_*tol) then
+       if(sum(abs(c(i0:i1))) > nstate_*hc_tol_) then
           nonzero(a) = .true.
        else
           nonzero(a) = .false.
@@ -147,9 +211,10 @@ contains
           if(nonzero(b)) then
              j0 = ElNuc_idx(b,1)
              j1 = ElNuc_idx(b+1,1)-1
-             hc(i0:i1) = hc(i0:i1) &
-                  - 1/m_* (matmul(Xij_(a,:,:), c(j0:j1)) * D1_(a,b) &
-                  +1.0d0/2*D2_(a,b)*c(j0:j1))
+             hc(i0:i1) = hc(i0:i1) - 1/(2*m_) * ( &
+                  +matmul(Xij_(a,:,:), c(j0:j1)) * D1_(a,b) &
+                  -matmul(Xij_(b,:,:), c(j0:j1)) * conjg(D1_(b,a)) & 
+                  + D2_(a,b)*c(j0:j1))
           end if
        end do
     end do
@@ -161,7 +226,7 @@ contains
     complex(kind(0d0)), intent(out) :: hc(:)
     integer idx, a, b, i0, i1, j0, j1
     double precision, parameter :: tol = 1.0d-10
-
+    throw_err("do not use this function", 1)
     hc(:) = 0
     do a = 1, num_
        i0 = ElNuc_idx(a,1)
@@ -170,9 +235,10 @@ contains
        do b = 1, num_
           j0 = ElNuc_idx(b,1)
           j1 = ElNuc_idx(b+1,1)-1
-          hc(i0:i1) = hc(i0:i1) &
-               - 1/m_* (matmul(Xij_(a,:,:), c(j0:j1)) * D1_(a,b) &
-               +1.0d0/2*D2_(a,b)*c(j0:j1))
+          hc(i0:i1) = hc(i0:i1) - 1/(2*m_) * (&
+               +matmul(Xij_(a,:,:), c(j0:j1)) * D1_(a,b) &
+               -matmul(Xij_(b,:,:), c(j0:j1)) * conjg(D1_(b,a)) &
+               +D2_(a,b)*c(j0:j1))
        end do
     end do
     

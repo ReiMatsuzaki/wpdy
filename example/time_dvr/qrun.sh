@@ -6,11 +6,20 @@
 #PBS -l nodes=athena49.cluster:ppn=12
 cd $PBS_O_WORKDIR
 
+
+UTEST=../../build/debug/utest_dvr.x
 ulimit -s unlimited
 export OMP_NUM_THREADS=1
-./utest_dvr > res1.log
+${UTEST} > res1.log
 
 export OMP_NUM_THREADS=12
-./utest_dvr > res12.log
+${UTEST} > res12.log
+
+UTEST=../../build/fast/utest_dvr.x
+export OMP_NUM_THREADS=1
+${UTEST} > res1fast.log
+export OMP_NUM_THREADS=12
+${UTEST} > res12fast.log
+
 
 

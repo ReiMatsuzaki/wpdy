@@ -450,20 +450,27 @@ contains
 end module Mod_TimeInteDiag
 
 module Mod_TimeInteKrylov
-  use Mod_ErrHandle  
+  use Mod_ErrHandle
+  use Mod_Timer
   implicit none
   private
   integer :: n_, kn_
   integer :: print_level_
   complex(kind(0d0)), allocatable :: u_(:,:), Hu_(:,:), kh_(:,:)
   complex(kind(0d0)), allocatable :: ck_(:), kuR_(:,:),kuL_(:,:), kw_(:)
-  public :: TimeInteKrylov_new, TimeInteKrylov_delete, TimeInteKrylov_calc, TimeInteKrylov_set_print_level
+  logical :: TimeInteKrylov_use_timer_=.false.
+  type(Obj_Timer) :: timer_
+  
+  public :: TimeInteKrylov_new, TimeInteKrylov_delete, TimeInteKrylov_calc, TimeInteKrylov_set_print_level,  TimeInteKrylov_use_timer_
 contains
   subroutine TimeInteKrylov_new(n, kn)
     integer, intent(in) :: n, kn
     n_ = n
     kn_ = kn
     print_level_ = 0
+    if(TimeInteKrylov_use_timer_) then
+       call Timer_new(timer_, "Krylov", .true.)
+    end if
     allocate(u_(n,kn));   u_=0
     allocate(Hu_(n,kn));  Hu_=0
     allocate(kh_(kn,kn)); kh_=0
@@ -474,6 +481,10 @@ contains
   end subroutine TimeInteKrylov_new
   subroutine TimeInteKrylov_delete
     deallocate(u_, Hu_, kh_, ck_, kuR_, kuL_, kw_)
+    if(TimeInteKrylov_use_timer_) then
+       call Timer_result(timer_)
+       call Timer_delete(timer_)
+    end if
   end subroutine TimeInteKrylov_delete
   subroutine TimeInteKrylov_set_print_level(x)
     integer, intent(in) :: x
@@ -494,12 +505,22 @@ contains
 
     if(size(c).ne.n_) then
        throw_err("c: invalid size", 1)
-    end if
+    end if    
+    if(TimeInteKrylov_use_timer_) call Timer_begin(timer_, "build")
+    
     ! -- 1st proces --
+    if(TimeInteKrylov_use_timer_) call Timer_begin(timer_, "build1")
     u_(:,1) = c(:)
+    if(TimeInteKrylov_use_timer_) call Timer_end(timer_, "build1")
+    if(TimeInteKrylov_use_timer_) call Timer_begin(timer_, "build2")
     u_(:,1) = u_(:,1) / norm(u_(:,1))
+    if(TimeInteKrylov_use_timer_) call Timer_end(timer_, "build2")
+    if(TimeInteKrylov_use_timer_) call Timer_begin(timer_, "build3")
     call hc(u_(:,1), Hu_(:,1))
+    if(TimeInteKrylov_use_timer_) call Timer_end(timer_, "build3")
+    if(TimeInteKrylov_use_timer_) call Timer_begin(timer_, "build4")
     kh_(1,1) = dot_product(u_(:,1), Hu_(:,1))
+    if(TimeInteKrylov_use_timer_) call Timer_end(timer_, "build4")
 
     if(print_level_>0) then
        write(*,*) "u(:2,1)", u_(:2,1)
@@ -539,8 +560,14 @@ contains
 
     end do
 
+    if(TimeInteKrylov_use_timer_) call Timer_end(timer_, "build")
+
     ! -- integration --
+    if(TimeInteKrylov_use_timer_) call Timer_begin(timer_, "diag")
     call lapack_zgeev(kh_(:,:), kn_, kw_(:), kuL_(:,:), kuR_(:,:))!; check_err()
+    if(TimeInteKrylov_use_timer_) call Timer_end(timer_, "diag")
+
+    if(TimeInteKrylov_use_timer_) call Timer_begin(timer_, "propagate")
     if(print_level_>0) write(*,*) "kw(:2)", kw_(:2)
     ck_(:) = exp(-ii*kw_*dt) * conjg(kuL_(1,:))
     if(print_level_>0) write(*,*) "1, ck_(:2)", ck_(:2)
@@ -548,10 +575,73 @@ contains
     if(print_level_>0) write(*,*) "2, ck_(:2)", ck_(:2)
     c(:)  = matmul(u_(:,:), ck_(:))
     if(print_level_>0) write(*,*) "c(:2)", c(:2)
+    if(TimeInteKrylov_use_timer_) call Timer_end(timer_, "propagate")
     
   end subroutine TimeIntekrylov_calc
+  !  subroutine TimeIntekrylov_calc_elnuc(dt, c)
+!    use Mod_Const, only : ii
+!    use Mod_Math, only  : lapack_zgeev, norm
+!    use Mod_ElNuc
+!    complex(kind(0d0)), intent(in) :: dt
+!    complex(kind(0d0)), intent(inout) :: c(:)
+!    integer k
+!
+!    if(size(c).ne.n_) then
+!       throw_err("c: invalid size", 1)
+!    end if    
+!    
+!    ! -- 1st proces --
+!    u_(:,1) = c(:)
+!    u_(:,1) = u_(:,1) / norm(u_(:,1))
+!    call ElNuc_hc(u_(:,1), Hu_(:,1))
+!    kh_(1,1) = dot_product(u_(:,1), Hu_(:,1))
+!    
+!    if(print_level_>0) then
+!       write(*,*) "u(:2,1)", u_(:2,1)
+!       write(*,*) "kh(1,1)", kh_(1,1)
+!    end if
+!    
+!    ! -- 2nd process --
+!    u_(:,2) = Hu_(:,1) - kh_(1,1)*u_(:,1)
+!    u_(:,2) = u_(:,2) / norm(u_(:,2))
+!    call ElNuc_hc(u_(:,2), Hu_(:,2))
+!    kh_(2,2) = dot_product(u_(:,2), Hu_(:,2))
+!    kh_(1,2) = dot_product(u_(:,1), Hu_(:,2))
+!    kh_(2,1) = conjg(kh_(1,2))
+!
+!    if(print_level_>0) then
+!       write(*,*) "u(:2,2)", u_(:2,2)
+!       write(*,*) "kh(1,2)", kh_(1,2)
+!       write(*,*) "kh(2,2)", kh_(2,2)
+!    end if
+!
+!    ! -- proceeding process --
+!    do k = 2, kn_-1
+!       u_(:,k+1) = Hu_(:,k) - kh_(k-1,k)*u_(:,k-1) - kh_(k,k)*u_(:,k)
+!       u_(:,k+1) = u_(:,k+1) / norm(u_(:,k+1))
+!       call ElNuc_hc(u_(:,k+1), Hu_(:,k+1))
+!       kh_(k+1,k+1) = dot_product(u_(:,k+1), Hu_(:,k+1))
+!       kh_(k,  k+1) = dot_product(u_(:,k),   Hu_(:,k+1))
+!       kh_(k+1,k)   = conjg(kh_(k,k+1))
+!
+!       if(print_level_>0) then
+!          if(k<4) then
+!             write(*,*) "k = ", k
+!             write(*,*) "u(:2,k)", u_(:2,k)
+!             write(*,*) "kh(:2,k)", kh_(:2,k)
+!          end if
+!       end if
+!
+!    end do
+!
+!    ! -- integration --
+!    call lapack_zgeev(kh_(:,:), kn_, kw_(:), kuL_(:,:), kuR_(:,:))!; check_err()
+!    ck_(:) = exp(-ii*kw_*dt) * conjg(kuL_(1,:))
+!    ck_(:) = matmul(kuR_(:,:), ck_(:))
+!    c(:)  = matmul(u_(:,:), ck_(:))
+!    
+!  end subroutine TimeIntekrylov_calc_elnuc
 end module Mod_TimeInteKrylov
-
 
 
 module Mod_Sparse

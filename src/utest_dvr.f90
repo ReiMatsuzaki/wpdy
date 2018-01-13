@@ -62,18 +62,10 @@ contains
     call test_tinte_simple
     call Utest_sub_end
 
-    call Utest_sub_begin("test_hc_time0")
-    call test_hc_time(0)
-    call Utest_sub_end
-
-    call Utest_sub_begin("test_hc_time1")
-    call test_hc_time(1)
-    call Utest_sub_end
-
     call Utest_sub_begin("test_elnuc")
     call test_elnuc
     call Utest_sub_end
-
+    
     call Utest_sub_begin("test_tinte_harm")
     call test_tinte_harm
     call Utest_sub_end
@@ -264,7 +256,7 @@ contains
     double precision, parameter :: m = 1.2d0
     double precision, parameter :: w = 1.0d0
     double precision, parameter :: a = m*w/2
-    double precision, parameter :: x0 = 0.0
+    double precision, parameter :: x0 = 2.0
     double precision, parameter :: p0 = 0.0
     integer, parameter :: nstate = 2
     complex(kind(0d0)) :: g0(num), cg0(num), c0(num*nstate), c1(num*nstate)
@@ -272,7 +264,7 @@ contains
     integer i
     
     ! -- initialize --
-    call ExpDVR_new(n, -5.0d0, 5.0d0)
+    call ExpDVR_new(n, -4.0d0, 5.0d0)
     call ElNuc_new(m, nstate)
 
     ! -- Matrix --
@@ -280,7 +272,9 @@ contains
     Hel_(:,2,2) = m*w*w/2 *xs_(:)**2 + 1.0d0
     Hel_(:,1,2) = xs_(:)/10
     Hel_(:,2,1) = xs_(:)/10
+    Hel_=0
     Xij_(:,:,:) = 0
+    Xij_(:,2,1) = (xs_(:)-1) * exp(-(xs_(:)-1)**2)
     Xij_(:,2,1) = exp(-(xs_(:)-1)**2)
     Xij_(:,1,2) = -Xij_(:,2,1)
 
@@ -295,13 +289,17 @@ contains
     c1(:) = c0(:)
     
     ! -- Hc by matrix --
-    call ElNuc_h(h)
+    call ElNuc_h(h)    
     hc0(:) = matmul(h(:,:), c0(:))
-
+    call expect_eq(0.0d0, sum(abs(h-transpose(conjg(h))))/(size(h)))
+    
     ! -- Hc by direct --
+    hc_method_ = 0
     call ElNuc_hc(c1(:), hc1(:))
+    call expect_eq(0.0d0, sum(abs(hc0(:)-hc1(:)))/size(hc1))
 
-    ! -- compare
+    hc_method_ = 3
+    call ElNuc_hc(c1(:), hc1(:))
     call expect_eq(0.0d0, sum(abs(hc0(:)-hc1(:)))/size(hc1))
     
     ! -- finalize --
@@ -309,87 +307,6 @@ contains
     call ElNuc_delete
     
   end subroutine test_elnuc
-  subroutine test_hc_time(hc_method)
-    use Mod_ElNuc
-    integer :: hc_method
-    integer, parameter :: n = 512
-    integer, parameter :: num = 2*n+1
-    integer, parameter :: nstate = 150
-    integer, parameter :: nn = num*nstate
-    double precision, parameter :: m = 1.2d0
-    double precision, parameter :: w = 1.0d0
-    double precision, parameter :: a = m*w/2
-    double precision, parameter :: x0 = 0.0
-    double precision, parameter :: p0 = 0.0    
-    complex(kind(0d0)) :: g0(num), cg0(num), c0(nn), hc0(nn)
-    integer i, j
-    
-    ! == result at athena ==
-    ! 2018/1/11 18:00
-    ! nstate  | time(s) |
-    !--------------------|
-    !  2      |   0.458  |
-    !  10     |   0.927  |
-    !  20     |   2.038  |
-    !  30     |   4.012  |
-    !  40     |  18.012  |
-    !  50     |  37.851  | 
-    !  60     |  59.442  |
-
-    ! == result at athena ==
-    ! 2018/1/11 23:00
-    ! nstate  | time(s) |
-    !--------------------|
-    !  2      |          |
-    !  10     |          |
-    !  20     |   0.489  |
-    !  30     |          |
-    !  40     |   1.321  |
-    !  50     |          | 
-    !  60     |   2.579  |
-    !  80     |   3.445  |
-    ! 100     |   4.646  |
-    ! 150     |   6.993  |
-
-    ! == results at athena49.cluster ==
-    ! -O0
-    ! 150     | 1core  | 5.111  |
-    !         | 12core | 1.6144 |
-    !
-    ! -O3 
-    ! 150     | 1core  | 0.997  |
-    !         | 12core | 0.490  |    
-
-    ! -- initialize --
-    call ExpDVR_new(n, -5.0d0, 5.0d0)
-    call ElNuc_new(m, nstate)    
-
-    ! -- Matrix --
-    do i = 1, nstate       
-       do j = 1, nstate
-          Hel_(:,i,j) = m*w*w/2 *xs_(:)**2 + (i+j)/100
-          Xij_(:,i,j) = exp(-(xs_(:)-1)**2) * (i-j)/100
-       end do
-    end do
-
-    ! -- coefficient --
-    g0(:) = exp(-a*(xs_-x0)**2 + ii*p0*(xs_-x0))
-    call ExpDVR_fit(g0(:), cg0(:))
-    cg0(:) = cg0(:) / sqrt(real(dot_product(cg0, cg0)))
-    c0(:) = 0
-    do i = 1, num
-       c0(2*i-1) = cg0(i)
-    end do
-    
-    ! -- Hc by direct --
-    hc_method_ = hc_method
-    call ElNuc_hc(c0(:), hc0(:))
-    
-    ! -- finalize --
-    call ExpDVR_delete
-    call ElNuc_delete
-        
-  end subroutine test_hc_time
   subroutine test_tinte_harm
     use Mod_math, only : lapack_zgeev
     use Mod_TimeInteKrylov
@@ -489,10 +406,10 @@ contains
     Hel_(:,1,1) = m*w*w/2 *xs_(:)**2
     Hel_(:,2,2) = m*w*w/2 *xs_(:)**2 + 1.0d0
     Hel_(:,1,2) = xs_(:)/10
-    Hel_(:,2,1) = xs_(:)/10
+    Hel_(:,2,1) = Hel_(:,1,2)
     Xij_(:,:,:) = 0
     Xij_(:,2,1) = exp(-(xs_(:)-1)**2)/100
-    Xij_(:,1,2) = -Xij_(:,1,2)
+    Xij_(:,1,2) = -Xij_(:,2,1)
 
     ! -- coefficient --
     g0(:) = exp(-a*(xs_-x0)**2 + ii*p0*(xs_-x0))
@@ -507,6 +424,7 @@ contains
     ! -- time integration by diagonalization--
     call Timer_begin(timer, "elnuc_h")
     call ElNuc_h(h)
+    call expect_eq(0.0d0, sum(abs(h-transpose(conjg(h))))/size(h))
     call Timer_end(timer, "elnuc_h")
     call Timer_begin(timer, "diag")
     call TimeInteDiag_new(num_*nstate_)

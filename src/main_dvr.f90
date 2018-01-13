@@ -12,10 +12,16 @@ module Mod_MainDVR
   character(10) :: inte_
 contains
   subroutine MainDVR_run
+    !$ use omp_lib
     use Mod_ArgParser
     character(10) :: runtype
     write(*,*)
     write(*,*) "WPDY_DVR program begin"
+    !$omp parallel
+    if(omp_get_thread_num().eq.0) then
+       write(*,*) "thread number:", omp_get_num_threads()
+    end if
+    !$omp end parallel
     write(*,*)
 
     call ErrHandle_new
@@ -81,7 +87,14 @@ contains
     write(*,*) "mass:", mass
 
     call arg_parse_s("-inte", inte_); check_err()
-    if(arg_parse_exist("-print_level")) then
+    write(*,*) "inte:", inte_
+    if(inte_.eq."diag") then
+    else if(inte_.eq."krylov") then
+       call arg_parse_i("-krylov_num", kn); check_err()       
+    else
+       throw_err("invalid value -inte", 1)
+    end if
+    if(arg_parse_exist("-print_level")) then          
        call arg_parse_i("-print_level", print_level)
     end if
     
@@ -95,6 +108,13 @@ contains
     allocate(c_(nstate_*num_))
     call Timer_end(timer_, "initialize")
 
+    if(arg_parse_exist("-elnuc_hc_tol")) then
+       call arg_parse_d("-elnuc_hc_tol", hc_tol_)
+    end if
+    if(arg_parse_exist("-elnuc_hc_method")) then
+       call arg_parse_i("-elnuc_hc_method", hc_method_)
+    end if    
+
     ! -- read data and dump --    
     call new_read(fn_psi0, fn_hel, fn_xij)
     call new_dump
@@ -106,8 +126,7 @@ contains
     if(inte_.eq."diag") then
        call TimeInteDiag_new(nstate_*num_); check_err()
        call TimeInteDiag_set_print_level(print_level)
-    else if(inte_.eq."krylov") then
-       call arg_parse_i("-krylov_num", kn); check_err()
+    else if(inte_.eq."krylov") then       
        call TimeInteKrylov_new(nstate_*num_, kn); check_err()
        call TimeInteKrylov_set_print_level(print_level)
     else
@@ -233,12 +252,12 @@ contains
     ! -- time loop --
     do it = 0, nt_/ntskip_
 
-       write(*,*) "wpdy_dvr ", it, "/", nt_/ntskip_
-       call Timer_begin(timer_, "main_calc")
+       write(*,*) "wpdy_dvr ", it, "/", nt_/ntskip_       
        t = it * ntskip_ * dt_
        write(out_it, '("out/", I0)') it       
        call mkdirp_if_not(out_it); check_err()
 
+       call Timer_begin(timer_, "main_dump")
        fn_coef = trim(out_it) // "/coef.csv"
        call open_w(ifile, fn_coef)
        write(ifile, '(A)') "re,im"
@@ -247,8 +266,9 @@ contains
        end do
        close(ifile)
        ifile = ifile + 1
+       call Timer_end(timer_, "main_dump")
 
-       write(*,*) "integrate t"
+       call Timer_begin(timer_, "main_calc")
        if(inte_.eq."diag") then
           do itt = 1, ntskip_
              call TimeInteDiag_calc(cdt_, c_(:)); check_err()
