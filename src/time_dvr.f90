@@ -30,15 +30,15 @@ contains
     use Mod_ElNuc
     use Mod_ExpDVR
     integer :: hc_method
-    integer, parameter :: n = 128
+    integer, parameter :: n = 128*4
     integer, parameter :: num = 2*n+1
-    integer, parameter :: nstate = 50
+    integer, parameter :: nstate = 50*3
     integer, parameter :: nn = num*nstate
+    double precision, parameter :: x0 = 1.0
+    double precision, parameter :: p0 = 0.0
     double precision, parameter :: m = 1.2d0
     double precision, parameter :: w = 1.0d0
     double precision, parameter :: a = m*w/2
-    double precision, parameter :: x0 = 0.0
-    double precision, parameter :: p0 = 0.0    
     complex(kind(0d0)) :: g0(num), cg0(num), c0(nn), hc0(nn)
     integer i, j
 
@@ -65,7 +65,7 @@ contains
     cg0(:) = cg0(:) / sqrt(real(dot_product(cg0, cg0)))
     c0(:) = 0
     do i = 1, num
-       c0(2*i-1) = cg0(i)
+       c0(nstate*(i-1)+1) = cg0(i)
     end do
     
     ! -- Hc by direct --
@@ -81,11 +81,15 @@ contains
     use Mod_TimeInteKrylov
     use Mod_ElNuc
     use Mod_Timer
-    integer, parameter :: n = 128    
+    integer, parameter :: n = 128*4
     integer, parameter :: num = 2*n+1
-    integer, parameter :: nstate = 50
+    integer, parameter :: nstate = 50*3
     double precision, parameter :: x0 = 1.0
     double precision, parameter :: p0 = 0.0
+    double precision, parameter :: m = 1.2d0
+    double precision, parameter :: w = 1.0d0
+    double precision, parameter :: a = m*w/2
+    complex(kind(0d0)) :: g0(num), cg0(num)
     complex(kind(0d0)) :: dt = 1.0d0
     integer, parameter :: nn=num*nstate
     complex(kind(0d0)) :: c(nn)
@@ -108,14 +112,21 @@ contains
     end do
 
     ! -- coefficient --
-    c(:) = 1.0d0
+    g0(:) = exp(-a*(xs_-x0)**2 + ii*p0*(xs_-x0))
+    call ExpDVR_fit(g0(:), cg0(:))
+    cg0(:) = cg0(:) / sqrt(real(dot_product(cg0, cg0)))
+    c(:) = 0
+    do i = 1, num
+       c(nstate*(i-1)+1) = cg0(i)
+    end do
     
     ! -- time integration by Krylov --
     call Timer_begin(timer, "inte_krylov")
-    TimeInteKrylov_use_timer_ = .true.
+    !    TimeInteKrylov_use_timer_ = .true.
+    hc_method_ = 0
     call TimeInteKrylov_new(nn, 10)
+    !    call TimeInteKrylov_calc(dt, c(:))    
     call TimeInteKrylov_calc(ElNuc_hc, dt, c(:))
-    !    call TimeInteKrylov_calc(dt, c(:))
     call TimeInteKrylov_delete
     call Timer_end(timer, "inte_krylov")
     

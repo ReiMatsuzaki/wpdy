@@ -253,3 +253,119 @@ contains
     res = (a-1)*nstate_ + i
   end function ElNuc_idx
 end module Mod_ElNuc
+
+module Mod_TimeInteKrylovEN
+  use Mod_ErrHandle
+  use Mod_Timer
+  implicit none
+  private
+  integer :: n_, kn_
+  integer :: print_level_
+  complex(kind(0d0)), allocatable :: u_(:,:), Hu_(:), kh_(:,:)
+  complex(kind(0d0)), allocatable :: ck_(:), kuR_(:,:),kuL_(:,:), kw_(:)
+  logical :: TimeInteKrylov_use_timer_=.false.
+  type(Obj_Timer) :: timer_
+  
+  public :: TimeInteKrylov_new, TimeInteKrylov_delete, TimeInteKrylov_calc, TimeInteKrylov_set_print_level,  TimeInteKrylov_use_timer_, n_
+contains
+  subroutine TimeInteKrylov_new(n, kn)
+    integer, intent(in) :: n, kn
+    n_ = n
+    kn_ = kn
+    print_level_ = 0
+    if(TimeInteKrylov_use_timer_) then
+       call Timer_new(timer_, "Krylov", .true.)
+    end if
+    allocate(u_(n,kn));   u_=0
+    allocate(Hu_(n));  Hu_=0
+    allocate(kh_(kn,kn)); kh_=0
+    allocate(ck_(kn));    ck_=0
+    allocate(kuR_(kn,kn)); kuR_=0    
+    allocate(kuL_(kn,kn)); kuL_=0
+    allocate(kw_(kn));     kw_=0
+  end subroutine TimeInteKrylov_new
+  subroutine TimeInteKrylov_delete
+    deallocate(u_, Hu_, kh_, ck_, kuR_, kuL_, kw_)
+    if(TimeInteKrylov_use_timer_) then
+       call Timer_result(timer_)
+       call Timer_delete(timer_)
+    end if
+  end subroutine TimeInteKrylov_delete
+  subroutine TimeInteKrylov_set_print_level(x)
+    integer, intent(in) :: x
+    print_level_ = x
+  end subroutine TimeInteKrylov_set_print_level
+  subroutine TimeIntekrylov_calc(dt, c)
+    use Mod_ElNuc
+    use Mod_Const, only : ii
+    use Mod_Math, only  : lapack_zgeev, norm
+    use Mod_ElNuc
+    complex(kind(0d0)), intent(in) :: dt
+    complex(kind(0d0)), intent(inout) :: c(:)
+    integer k
+
+    if(size(c).ne.n_) then
+       begin_err(1)
+       write(0,*) "c: invalid size"
+       write(0,*) "n:", n_
+       write(0,*) "size(c)", size(c)
+       end_err()
+    end if    
+    
+    ! -- 1st proces --
+    u_(:,1) = c(:)
+    u_(:,1) = u_(:,1) / norm(u_(:,1))
+    if(TimeInteKrylov_use_timer_) call Timer_begin(timer_, "hc0")
+    call ElNuc_hc(c(:), Hu_(:))
+    if(TimeInteKrylov_use_timer_) call Timer_end(timer_, "hc0")
+    if(TimeInteKrylov_use_timer_) call Timer_begin(timer_, "hc1")
+    call ElNuc_hc(u_(:,1), Hu_(:))
+    if(TimeInteKrylov_use_timer_) call Timer_end(timer_, "hc1")
+    kh_(1,1) = dot_product(u_(:,1), Hu_(:))
+    
+    if(print_level_>0) then
+       write(*,*) "u(:2,1)", u_(:2,1)
+       write(*,*) "kh(1,1)", kh_(1,1)
+    end if
+    
+    ! -- 2nd process --
+    u_(:,2) = Hu_(:) - kh_(1,1)*u_(:,1)
+    u_(:,2) = u_(:,2) / norm(u_(:,2))
+    call ElNuc_hc(u_(:,2), Hu_(:))
+    kh_(2,2) = dot_product(u_(:,2), Hu_(:))
+    kh_(1,2) = dot_product(u_(:,1), Hu_(:))
+    kh_(2,1) = conjg(kh_(1,2))
+
+    if(print_level_>0) then
+       write(*,*) "u(:2,2)", u_(:2,2)
+       write(*,*) "kh(1,2)", kh_(1,2)
+       write(*,*) "kh(2,2)", kh_(2,2)
+    end if
+
+    ! -- proceeding process --
+    do k = 2, kn_-1
+       u_(:,k+1) = Hu_(:) - kh_(k-1,k)*u_(:,k-1) - kh_(k,k)*u_(:,k)
+       u_(:,k+1) = u_(:,k+1) / norm(u_(:,k+1))
+       call ElNuc_hc(u_(:,k+1), Hu_(:))
+       kh_(k+1,k+1) = dot_product(u_(:,k+1), Hu_(:))
+       kh_(k,  k+1) = dot_product(u_(:,k),   Hu_(:))
+       kh_(k+1,k)   = conjg(kh_(k,k+1))
+
+       if(print_level_>0) then
+          if(k<4) then
+             write(*,*) "k = ", k
+             write(*,*) "u(:2,k)", u_(:2,k)
+             write(*,*) "kh(:2,k)", kh_(:2,k)
+          end if
+       end if
+
+    end do
+
+    ! -- integration --
+    call lapack_zgeev(kh_(:,:), kn_, kw_(:), kuL_(:,:), kuR_(:,:))!; check_err()
+    ck_(:) = exp(-ii*kw_*dt) * conjg(kuL_(1,:))
+    ck_(:) = matmul(kuR_(:,:), ck_(:))
+    c(:)  = matmul(u_(:,:), ck_(:))
+    
+  end subroutine TimeIntekrylov_calc
+end module Mod_TimeInteKrylovEN

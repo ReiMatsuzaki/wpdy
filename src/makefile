@@ -1,6 +1,6 @@
 include ../local.mk
 
-MODS0=const err_handle math istream fjson timer sys timer strutil argparser
+MODS0=const err_handle timer  math istream fjson timer sys strutil argparser
 OPT=0
 NTH=1  # number of threads
 ARCH=debug

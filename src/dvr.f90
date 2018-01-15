@@ -8,6 +8,7 @@ module Mod_ExpDVR
   double precision, allocatable :: xs_(:), ws_(:)
   complex(kind(0d0)), allocatable :: u_(:,:)
   double precision :: dx_, L_, x0_, xN_
+  
 contains
   subroutine ExpDVR_new(n, x0, xN)
     integer, intent(in) :: n

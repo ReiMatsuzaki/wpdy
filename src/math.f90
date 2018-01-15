@@ -456,7 +456,7 @@ module Mod_TimeInteKrylov
   private
   integer :: n_, kn_
   integer :: print_level_
-  complex(kind(0d0)), allocatable :: u_(:,:), Hu_(:,:), kh_(:,:)
+  complex(kind(0d0)), allocatable :: u_(:,:), Hu_(:), kh_(:,:)
   complex(kind(0d0)), allocatable :: ck_(:), kuR_(:,:),kuL_(:,:), kw_(:)
   logical :: TimeInteKrylov_use_timer_=.false.
   type(Obj_Timer) :: timer_
@@ -472,7 +472,7 @@ contains
        call Timer_new(timer_, "Krylov", .true.)
     end if
     allocate(u_(n,kn));   u_=0
-    allocate(Hu_(n,kn));  Hu_=0
+    allocate(Hu_(n));  Hu_=0
     allocate(kh_(kn,kn)); kh_=0
     allocate(ck_(kn));    ck_=0
     allocate(kuR_(kn,kn)); kuR_=0
@@ -516,10 +516,10 @@ contains
     u_(:,1) = u_(:,1) / norm(u_(:,1))
     if(TimeInteKrylov_use_timer_) call Timer_end(timer_, "build2")
     if(TimeInteKrylov_use_timer_) call Timer_begin(timer_, "build3")
-    call hc(u_(:,1), Hu_(:,1))
+    call hc(u_(:,1), Hu_(:))
     if(TimeInteKrylov_use_timer_) call Timer_end(timer_, "build3")
     if(TimeInteKrylov_use_timer_) call Timer_begin(timer_, "build4")
-    kh_(1,1) = dot_product(u_(:,1), Hu_(:,1))
+    kh_(1,1) = dot_product(u_(:,1), Hu_(:))
     if(TimeInteKrylov_use_timer_) call Timer_end(timer_, "build4")
 
     if(print_level_>0) then
@@ -528,11 +528,11 @@ contains
     end if
     
     ! -- 2nd process --
-    u_(:,2) = Hu_(:,1) - kh_(1,1)*u_(:,1)
+    u_(:,2) = Hu_(:) - kh_(1,1)*u_(:,1)
     u_(:,2) = u_(:,2) / norm(u_(:,2))
-    call hc(u_(:,2), Hu_(:,2))
-    kh_(2,2) = dot_product(u_(:,2), Hu_(:,2))
-    kh_(1,2) = dot_product(u_(:,1), Hu_(:,2))
+    call hc(u_(:,2), Hu_(:))
+    kh_(2,2) = dot_product(u_(:,2), Hu_(:))
+    kh_(1,2) = dot_product(u_(:,1), Hu_(:))
     kh_(2,1) = conjg(kh_(1,2))
 
     if(print_level_>0) then
@@ -543,11 +543,11 @@ contains
 
     ! -- proceeding process --
     do k = 2, kn_-1
-       u_(:,k+1) = Hu_(:,k) - kh_(k-1,k)*u_(:,k-1) - kh_(k,k)*u_(:,k)
+       u_(:,k+1) = Hu_(:) - kh_(k-1,k)*u_(:,k-1) - kh_(k,k)*u_(:,k)
        u_(:,k+1) = u_(:,k+1) / norm(u_(:,k+1))
-       call hc(u_(:,k+1), Hu_(:,k+1))
-       kh_(k+1,k+1) = dot_product(u_(:,k+1), Hu_(:,k+1))
-       kh_(k,  k+1) = dot_product(u_(:,k),   Hu_(:,k+1))
+       call hc(u_(:,k+1), Hu_(:))
+       kh_(k+1,k+1) = dot_product(u_(:,k+1), Hu_(:))
+       kh_(k,  k+1) = dot_product(u_(:,k),   Hu_(:))
        kh_(k+1,k)   = conjg(kh_(k,k+1))
 
        if(print_level_>0) then

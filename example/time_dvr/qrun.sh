@@ -7,15 +7,14 @@
 cd $PBS_O_WORKDIR
 
 
-UTEST=../../build/debug/utest_dvr.x
-ulimit -s unlimited
-export OMP_NUM_THREADS=1
-${UTEST} > res1.log
+#UTEST=../../build/debug/time_dvr.x
+#ulimit -s unlimited
+#export OMP_NUM_THREADS=1
+#${UTEST} > res1.log
+#export OMP_NUM_THREADS=12
+#${UTEST} > res12.log
 
-export OMP_NUM_THREADS=12
-${UTEST} > res12.log
-
-UTEST=../../build/fast/utest_dvr.x
+UTEST=../../build/fast/time_dvr.x
 export OMP_NUM_THREADS=1
 ${UTEST} > res1fast.log
 export OMP_NUM_THREADS=12
