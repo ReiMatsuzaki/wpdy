@@ -23,7 +23,7 @@ endif
 endif
 
 ifeq (${FC},gfortran)
-	FF=-Wall -pedantic -fbounds-check -O -Wuninitialized -fbacktrace -g -cpp -ffree-line-length-512
+	FF=-Wall -pedantic -fbounds-check -O -Wuninitialized -fbacktrace -g -cpp -ffree-line-length-512 -fopenmp
 	LDFLAGS=-llapack -lblas
 endif
 

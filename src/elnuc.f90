@@ -186,7 +186,7 @@ contains
   subroutine ElNuc_hc_1(c, hc)
     complex(kind(0d0)), intent(in) :: c(:)
     complex(kind(0d0)), intent(out) :: hc(:)
-    integer idx, a, b, i0, i1, j0, j1
+    integer a, b, i0, i1, j0, j1
     logical :: nonzero(num_)
     throw_err("do not use this function", 1)
     do a = 1, num_
@@ -224,7 +224,7 @@ contains
   subroutine ElNuc_hc_2(c, hc)
     complex(kind(0d0)), intent(in) :: c(:)
     complex(kind(0d0)), intent(out) :: hc(:)
-    integer idx, a, b, i0, i1, j0, j1
+    integer a, b, i0, i1, j0, j1
     double precision, parameter :: tol = 1.0d-10
     throw_err("do not use this function", 1)
     hc(:) = 0
