@@ -19,6 +19,8 @@ f90/utest
 **/scr/
 *.pdf
 *.csv
-**/out
+example/*/out
+example/*/*/out
+example/*/*/*/out
 **/fig
 a.out
