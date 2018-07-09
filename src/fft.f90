@@ -17,7 +17,7 @@ contains
     allocate(ip(0: 2+n2))
     ip(0) = 0
 
-  end subroutine fft_begin  
+  end subroutine fft_begin
   subroutine fft_end
 
     deallocate(w)

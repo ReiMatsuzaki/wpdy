@@ -13,7 +13,7 @@ tr = np.transpose
 import pandas as pd
 
 # ==== const ====
-wpdy = os.path.expanduser("~/src/wpdy/build/wpdy")
+wpdy = os.path.expanduser("~/src/wpdy/build/debug/wpdy.x")
 
 # ==== calc info ====
 xt = 1.0
@@ -29,7 +29,7 @@ dt = 0.1
 nt = 10
 ntskip = 1
 
-nstate = 2
+nstate = 1
 m = 1.0
 
 # ==== psi0 ====

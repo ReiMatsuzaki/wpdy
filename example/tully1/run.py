@@ -7,6 +7,7 @@ import json
 import subprocess 
 import numpy as np
 tr = np.transpose
+exp = np.exp
 import pandas as pd
 
 from wpdy.dvr import *
@@ -25,13 +26,13 @@ dvr = ExpDVR(n, x0, xN)
 xs = dvr.xs
 nx = len(xs)
 
-dt = 10.0
-nt = 150
+dt = 20.0
+nt = 100
 ntskip = 1
 
 # ==== psi0 ====
 xt = -7.0
-pt = 20.0
+pt = 15.0
 at = 1.0
 gs = np.exp(-at*(xs-xt)**2 + 1j*pt*(xs-xt))
 with open("psi0.idx.csv", "w") as f:
@@ -40,14 +41,13 @@ with open("psi0.idx.csv", "w") as f:
         f.write("{0},1,{1},{2}\n".format(ix+1, gs[ix].real, gs[ix].imag))
 
 # ==== potential ====
-A = 0.1
-B = 0.28
-C = 0.015
-D = 0.06
-E = 0.05
-v11 = xs*0.0
-v22 = -A*np.exp(-B*xs**2) + E
-v12 = C*np.exp(-D*xs**2)
+A = 0.01
+B = 1.6
+C = 0.005
+D = 1.0
+v11 = np.where(xs>0, A*(1-exp(-B*xs)), -A*(1-exp(+B*xs)))
+v22 = -v11
+v12 = C*exp(-D*xs*xs)
 v21 = v12
 with open("v.idx.csv", "w") as f:
     f.write("i,j,k,re,im\n")
@@ -73,8 +73,7 @@ cmd = map(str,
            "-dt", dt,
            "-nt", nt,
            "-ntskip", ntskip,
-           "-inte", "krylov",
-           "-krylov_num", 30])
+           "-inte", "diag"])
 subprocess.check_call(cmd)
 
 

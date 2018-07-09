@@ -14,7 +14,7 @@ from naewdy2.math import csv2mat
 
 xs = csv2mat("out/xs.csv")
 for it in [0,10]:
-    coef = csv2mat("out/{0}/coef.csv".format(it))
+    coef = csv2mat("out/{0}/coef.idx.csv".format(it))
     plt.plot(xs, coef[:,0].real, label=str(it))
 
 plt.savefig("psi.pdf")

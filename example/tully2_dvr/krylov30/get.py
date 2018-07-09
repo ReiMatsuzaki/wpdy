@@ -25,9 +25,8 @@ f_prob = open("out/prob.csv", "w"); f_prob.write("val1,val2\n")
 for it in range(len(ts)):
     
     t = ts[it]
-    print
-    print "{0}: {1}/{2}".format(__file__, it, len(ts)-1)
-    print "t = {0}".format(t)    
+    print("{0}: {1}/{2}".format(__file__, it, len(ts)-1))
+    print("t = {0}".format(t)    )
     dir_it  = join("out", str(it))
     
     df = pd.read_csv(join(dir_it, "coef.csv"))

@@ -73,8 +73,7 @@ cmd = map(str,
            "-dt", dt,
            "-nt", nt,
            "-ntskip", ntskip,
-           "-inte", "krylov",
-           "-krylov_num", 30])
+           "-inte", "diag"])
 subprocess.check_call(cmd)
 
 
