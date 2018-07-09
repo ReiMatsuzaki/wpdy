@@ -61,6 +61,10 @@ ${BUILD}/wpdy.x: $(call mod2obj, ${WPDYMODS} main)
 ${BUILD}/wpdy_dvr.x: $(call mod2obj, ${DVRMODS} main_dvr)
 ${BUILD}/time_dvr.x: $(call mod2obj, ${DVRMODS} time_dvr)
 
+.PHONY: wpdy_dvr
+wpdy_dvr: ${BUILD}/wpdy_dvr.x
+
+
 # ==== 
 # ==== utest ====
 #${BUILD}/utest_wpdy.x: $(call mod2obj, ${MODS0} utest fft4g fftsg2d fft wpdy utest_wpdy)

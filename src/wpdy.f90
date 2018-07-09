@@ -8,6 +8,7 @@ module Mod_WPDy
   double precision, allocatable :: xs_(:), vs_(:,:,:), cvs_(:), frs_(:,:), frs0_(:,:)
   double precision :: m_
   logical :: setupq_=.false.
+  logical :: imaginary_prop_=.false.
 contains
   ! ==== constructors ====
   subroutine WPDy_new(nstate, x0, dx, nx)
@@ -32,7 +33,7 @@ contains
     frs0_(:,:) = 0.0d0
     do i = 1, nx_
        xs_(i) = x0 + (i-1)*dx       
-    end do    
+    end do
   end subroutine WPDy_new
   subroutine WPDy_new_json(o)
     use Mod_fjson
@@ -48,6 +49,12 @@ contains
     call object_get_i(o, "nx", nx); check_err()
     call object_get_d(o, "dx", dx); check_err()
     call object_get_d(o, "x0", x0); check_err()
+
+    if(object_exist(o, "imaginary_prop")) then
+       call object_get_b(o, "imaginary_prop", imaginary_prop_)
+    else
+       imaginary_prop_ = .false.
+    end if
         
     call WPDy_new(nstate, x0, dx, nx); check_err()
     
@@ -59,6 +66,7 @@ contains
     write(*,*) "dx:", dx
     write(*,*) "x0:", x0
     write(*,*) "m:", m_
+    write(*,*) "imaginary_prop:", imaginary_prop_
     write(*,*) "WPDy_new_json end"
     
   end subroutine WPDy_new_json
@@ -66,13 +74,20 @@ contains
   subroutine WPDy_set_vs(ifile)
     integer, intent(in) :: ifile
     integer ii, jj, ix
-    double precision val
+    double precision val, vmin
+
+    ! read csv data
     read(ifile, *)
     do
        read(ifile, *, end=100) ii, jj, ix, val
        vs_(ii,jj,ix) = val
     end do
 100 continue
+
+    ! shift origin to minimum
+    vmin = minval(vs_)
+    vs_(:,:,:) = vs_(:,:,:) - vmin
+    
   end subroutine WPDy_set_vs
   subroutine WPDy_set_frs(ifile)
     integer, intent(in) :: ifile
@@ -204,10 +219,21 @@ contains
   ! ==== calc ====
   subroutine WPDy_SplitOp_inte(dt)
     complex(kind(0d0)), intent(in) :: dt
+    complex(kind(0d0)) :: cdt
+    double precision norm1
+    if(imaginary_prop_) then
+       cdt = dt * (0.0, -1.0)
+    else
+       cdt = dt
+    end if
     if(nstate_.eq.1) then
-       call inte_1(dt); check_err()
+       call inte_1(cdt); check_err()
+       if(imaginary_prop_) then
+          norm1 = sqrt(WPDy_prob(1))
+          frs_(:,:) = frs_(:,:) / norm1
+       end if
     else if(nstate_.eq.2) then
-       call inte_2(dt); check_err()
+       call inte_2(cdt); check_err()
     end if
   end subroutine WPDy_SplitOp_inte
   subroutine inte_1(dt)
@@ -229,14 +255,14 @@ contains
     end if
 
     sqrt_nx = sqrt(1.0d0 * nx_)
-
+    
     do i = 0, nx_-1
        fi = dcmplx(frs_(1,2*i), frs_(1,2*i+1))
        fi = exp(-II*vs_(1,1,i+1)*0.5d0 * dt)*fi
        frs_(1,2*i)   = real(fi)
        frs_(1,2*i+1) = aimag(fi)
     end do
-
+    
     call fft_backward(frs_(1,:), int(xs_(1)/dx_), -nx_/2+1)
     do i = 0, nx_-1
        frs_(1,2*i)   = frs_(1,2*i  )/sqrt_nx

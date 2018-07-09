@@ -1,7 +1,7 @@
 module Mod_TimeStep
   use Mod_ErrHandle
   implicit none
-  double precision :: dt_
+  double precision  dt_
   integer :: nt_, ntskip_
 contains
   subroutine TimeStep_new
@@ -18,6 +18,7 @@ contains
     write(*,*) "TimeStep_new_json begin"
     write(*,*) "nt:", nt_
     write(*,*) "dt:", dt_
+    write(*,*) "redt:", dt_
     write(*,*) "ntskip:", ntskip_
     write(*,*) "TimeStep_new_json end"
   end subroutine TimeStep_new_json
@@ -27,7 +28,7 @@ contains
     type(object) :: o
     call object_set_i(o, "nt", nt_)
     call object_set_i(o, "ntskiip_", ntskip_)
-    call object_set_d(o, "dt", dt_)
+    call object_set_d(o, "redt", dt_)
     call object_dump(o, ifile)
   end subroutine TimeStep_dump
 end module Mod_TimeStep

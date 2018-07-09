@@ -1,0 +1,15 @@
+{
+ "wpdy": {
+  "x0": -10.0,
+  "nx": 512,
+  "dx": 0.039138943248532954,
+  "m": 1.0,
+  "nstate": 1,
+  "imaginary_prop": true
+ },
+ "timestep": {
+  "dt": 0.1,
+  "nt": 100,
+  "ntskip": 1
+ }
+}
